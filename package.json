@@ -1,0 +1,49 @@
+{
+  "name": "restaurant-print-server",
+  "version": "1.0.2",
+  "description": "Local print server for thermal printers",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "publish": "electron-builder --win --x64 --publish always"
+  },
+  "author": "Yalla Menu",
+  "license": "MIT",
+  "dependencies": {
+    "express": "4.18.2",
+    "cors": "2.8.5",
+    "body-parser": "1.20.2",
+    "auto-launch": "5.0.6",
+    "electron-squirrel-startup": "1.0.0",
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "28.0.0",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "com.yallamenu.printserver",
+    "productName": "Restaurant Print Server",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "publish": {
+        "provider": "github",
+        "owner": "ahmadzissa",
+        "repo": "restaurant-print-server"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

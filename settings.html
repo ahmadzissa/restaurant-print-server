@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant Print Server - Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+
+    [dir="rtl"] body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px 30px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 8px 16px;
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    .logo-img {
+      width: 40px;
+      height: 40px;
+      background: white;
+      border-radius: 8px;
+      padding: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .brand-text {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header-center {
+      flex: 1;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .lang-switcher {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 4px;
+      backdrop-filter: blur(10px);
+    }
+
+    .lang-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 16px;
+      background: transparent;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+
+    .lang-btn.active {
+      background: white;
+      color: #667eea;
+    }
+
+    .lang-btn:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    [dir="rtl"] .toast-container {
+      right: auto;
+      left: 20px;
+    }
+
+    .toast {
+      background: white;
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 320px;
+      max-width: 450px;
+      animation: slideIn 0.3s ease;
+      border-left: 4px solid #667eea;
+    }
+
+    [dir="rtl"] .toast {
+      border-left: none;
+      border-right: 4px solid #667eea;
+    }
+
+    .toast.success { border-left-color: #10b981; }
+    .toast.error { border-left-color: #ef4444; }
+    .toast.warning { border-left-color: #f59e0b; }
+
+    [dir="rtl"] .toast.success { border-right-color: #10b981; }
+    [dir="rtl"] .toast.error { border-right-color: #ef4444; }
+    [dir="rtl"] .toast.warning { border-right-color: #f59e0b; }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .toast-icon {
+      font-size: 24px;
+    }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #1f2937;
+    }
+
+    .toast-message {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #9ca3af;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+    }
+
+    .status-card {
+      flex: 1;
+      min-width: 200px;
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 16px;
+      border: 2px solid #e5e7eb;
+      transition: all 0.3s;
+    }
+
+    .status-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    }
+
+    .status-card.warning {
+      background: #fef3c7;
+      border-color: #f59e0b;
+    }
+
+    .status-card.success {
+      background: #d1fae5;
+      border-color: #10b981;
+    }
+
+    .status-card.error {
+      background: #fee2e2;
+      border-color: #ef4444;
+    }
+
+    .status-card-title {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .status-card-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 20px;
+      border: 2px solid #e5e7eb;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-success {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #059669;
+    }
+
+    .btn-secondary {
+      background: #6b7280;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+
+    .btn-warning {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .input-group {
+      margin-bottom: 15px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .input-group input,
+    .input-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .input-group input:focus,
+    .input-group select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .printer-list {
+      display: grid;
+      gap: 15px;
+    }
+
+    .printer-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .printer-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    }
+
+    .printer-card.default {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .printer-card.favorite {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .favorite-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+
+    [dir="rtl"] .favorite-btn {
+      right: auto;
+      left: 15px;
+    }
+
+    .favorite-btn:hover {
+      transform: scale(1.2);
+    }
+
+    .printer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+
+    .printer-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .printer-alias {
+      font-size: 14px;
+      color: #6b7280;
+      margin-top: 4px;
+      font-style: italic;
+    }
+
+    .printer-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .printer-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-default {
+      background: #10b981;
+      color: white;
+    }
+
+    .badge-favorite {
+      background: #f59e0b;
+      color: white;
+    }
+
+    .badge-paper {
+      background: #667eea;
+      color: white;
+    }
+
+    .printer-details {
+      color: #6b7280;
+      font-size: 14px;
+      margin: 8px 0;
+    }
+
+    .printer-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      margin: 8px 0;
+    }
+
+    .printer-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    .config-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #9ca3af;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal h3 {
+      margin-bottom: 20px;
+      color: #1f2937;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    .print-queue {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 2px solid #e5e7eb;
+    }
+
+    .queue-item.failed {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .queue-item.completed {
+      border-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .queue-item-info {
+      flex: 1;
+    }
+
+    .queue-item-printer {
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .queue-item-time {
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .queue-item-status {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-completed {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-failed {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .external-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .external-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+    }
+
+    .printer-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      padding-top: 50px; /* Add space at top for favorite button */
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .favorite-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      font-size: 28px;
+      cursor: pointer;
+      transition: transform 0.3s;
+      z-index: 10;
+    }
+
+    [dir="rtl"] .favorite-btn {
+      right: auto;
+      left: 10px;
+    }
+
+    .favorite-btn:hover {
+      transform: scale(1.2);
+    }
+
+    .printer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 12px;
+      gap: 15px; /* Add gap to prevent overlap */
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="container">
+  <div class="header">
+    <div class="logo-brand">
+      <img src="assets/icon.ico" alt="Logo" class="logo-img">
+      <span class="brand-text">Yalla Menu</span>
+    </div>
+
+    <div class="header-center">
+      <h1 data-i18n="title">🖨️ نظام طباعة المطعم</h1>
+      <p data-i18n="subtitle">إدارة طابعات الإيصالات الحرارية</p>
+    </div>
+
+    <div class="lang-switcher">
+      <button class="lang-btn" onclick="switchLanguage('ar')" id="langAr">عربي</button>
+      <button class="lang-btn" onclick="switchLanguage('en')" id="langEn">English</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-card" id="serverStatusCard">
+        <div class="status-card-title" data-i18n="serverStatus">حالة الخادم</div>
+        <div class="status-card-value">
+          <span id="serverStatusText">🔄 جاري التحميل...</span>
+        </div>
+      </div>
+
+      <div class="status-card" id="autoStartCard">
+        <div class="status-card-title" data-i18n="autoStartStatus">التشغيل التلقائي</div>
+        <div class="status-card-value">
+          <span id="autoStartText">🔄 جاري التحميل...</span>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <div class="status-card-title" data-i18n="serverPort">منفذ الخادم</div>
+        <div class="status-card-value">
+          <span id="currentPort">9100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Server Configuration -->
+    <div class="section">
+      <div class="section-header">
+        <h2 data-i18n="serverConfig">⚙️ إعدادات الخادم</h2>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div class="input-group">
+          <label data-i18n="serverUrl">عنوان الخادم</label>
+          <input type="text" id="serverUrl" readonly style="background: #f3f4f6;">
+        </div>
+
+        <div class="input-group">
+          <label data-i18n="changePort">تغيير المنفذ</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="number" id="newPort" min="1024" max="65535" placeholder="9100">
+            <button class="btn btn-secondary" onclick="changePort()" data-i18n="apply">تطبيق</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 15px;">
+        <a href="https://admin.yala.menu/printer" target="_blank" class="external-link">
+          <span data-i18n="managePrinters">إدارة الطابعات في التطبيق</span>
+          <span>🔗</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Print Queue -->
+    <div class="section">
+      <div class="section-header">
+        <h2 data-i18n="printQueue">📋 قائمة انتظار الطباعة</h2>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-warning btn-small" onclick="clearFailedJobs()" id="clearFailedBtn" style="display: none;">
+            <span>🗑️</span>
+            <span data-i18n="clearFailed">مسح الفاشلة</span>
+          </button>
+          <button class="btn btn-primary btn-small" onclick="refreshQueue()">
+            <span>🔄</span>
+            <span data-i18n="refresh">تحديث</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="print-queue" id="printQueue">
+        <div class="empty-state">
+          <p data-i18n="noJobs">لا توجد مهام طباعة حديثة</p>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Available Printers -->
+    <div class="section">
+      <div class="section-header">
+        <h2 data-i18n="availablePrinters">🖨️ الطابعات المتاحة</h2>
+        <button class="btn btn-primary" onclick="loadPrinters()" id="refreshBtn">
+          <span>🔄</span>
+          <span data-i18n="refresh">تحديث</span>
+        </button>
+      </div>
+
+      <div id="printerList" class="printer-list">
+        <div class="empty-state">
+          <p data-i18n="loading">جاري تحميل الطابعات...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Configure Printer Modal -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal">
+    <h3 data-i18n="configurePrinter">تكوين الطابعة</h3>
+
+    <div class="input-group">
+      <label data-i18n="printerAlias">الاسم المخصص</label>
+      <input type="text" id="modalAlias" placeholder="Kitchen Main">
+    </div>
+
+    <div class="input-group">
+      <label data-i18n="paperWidth">عرض الورق</label>
+      <select id="modalPaperWidth">
+        <option value="58">58mm</option>
+        <option value="80" selected>80mm</option>
+      </select>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeConfigModal()" data-i18n="cancel">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const translations = {
+    ar: {
+      title: '🖨️ نظام طباعة المطعم',
+      subtitle: 'إدارة طابعات الإيصالات الحرارية',
+      serverStatus: 'حالة الخادم',
+      autoStartStatus: 'التشغيل التلقائي',
+      serverPort: 'منفذ الخادم',
+      serverConfig: '⚙️ إعدادات الخادم',
+      serverUrl: 'عنوان الخادم',
+      changePort: 'تغيير المنفذ',
+      apply: 'تطبيق',
+      managePrinters: 'إدارة الطابعات في التطبيق',
+      printQueue: '📋 قائمة انتظار الطباعة',
+      noJobs: 'لا توجد مهام طباعة حديثة',
+      availablePrinters: '🖨️ الطابعات المتاحة',
+      refresh: 'تحديث',
+      loading: 'جاري تحميل الطابعات...',
+      running: '✓ يعمل',
+      stopped: '❌ متوقف',
+      enabled: '✓ مفعّل',
+      disabled: '⚠️ غير مفعّل',
+      autoStartWarning: 'التطبيق لن يبدأ تلقائياً مع Windows',
+      clickToEnable: 'انقر لتفعيل التشغيل التلقائي',
+      noPrintersFound: '📭 لم يتم العثور على طابعات',
+      installPrinters: 'تأكد من تثبيت الطابعات في Windows',
+      controlPanel: 'لوحة التحكم ← الأجهزة والطابعات',
+      favoritePrinters: '⭐ الطابعات المفضلة',
+      defaultPrinter: '⭐ الطابعة الافتراضية',
+      posPrinters: '🖨️ طابعات نقاط البيع',
+      otherPrinters: '📄 طابعات أخرى',
+      defaultBadge: '✓ افتراضية',
+      favoriteBadge: '⭐ مفضلة',
+      statusReady: '✓ جاهزة',
+      statusPaused: '⏸ متوقفة',
+      statusError: '❌ خطأ',
+      statusOffline: '🔌 غير متصلة',
+      statusUnknown: '❓ غير معروفة',
+      testPrint: 'طباعة تجريبية',
+      configure: 'تكوين',
+      printing: 'جاري الطباعة...',
+      printSuccess: 'تم إرسال الطباعة بنجاح',
+      printQueued: 'تم وضع المهمة في قائمة الانتظار',
+      printFailed: 'فشلت الطباعة',
+      checkQueue: 'تحقق من قائمة انتظار Windows',
+      configurePrinter: 'تكوين الطابعة',
+      printerAlias: 'الاسم المخصص',
+      paperWidth: 'عرض الورق',
+      cancel: 'إلغاء',
+      save: 'حفظ',
+      configSaved: 'تم حفظ الإعدادات بنجاح',
+      portChanged: 'تم تغيير المنفذ بنجاح',
+      portInUse: 'المنفذ قيد الاستخدام',
+      pending: 'قيد الانتظار',
+      completed: 'مكتمل',
+      failed: 'فشل',
+      autoStartEnabled: 'تم تفعيل التشغيل التلقائي',
+      autoStartDisabled: 'تم تعطيل التشغيل التلقائي',
+      clearFailed: 'مسح الفاشلة',
+      jobRemoved: 'تم الحذف'
+    },
+    en: {
+      title: '🖨️ Restaurant Print Server',
+      subtitle: 'Manage thermal receipt printers',
+      serverStatus: 'Server Status',
+      autoStartStatus: 'Auto-Start',
+      serverPort: 'Server Port',
+      serverConfig: '⚙️ Server Configuration',
+      serverUrl: 'Server URL',
+      changePort: 'Change Port',
+      apply: 'Apply',
+      managePrinters: 'Manage Printers in App',
+      printQueue: '📋 Print Queue',
+      noJobs: 'No recent print jobs',
+      availablePrinters: '🖨️ Available Printers',
+      refresh: 'Refresh',
+      loading: 'Loading printers...',
+      running: '✓ Running',
+      stopped: '❌ Stopped',
+      enabled: '✓ Enabled',
+      disabled: '⚠️ Disabled',
+      autoStartWarning: 'App will not start automatically with Windows',
+      clickToEnable: 'Click to enable auto-start',
+      noPrintersFound: '📭 No printers found',
+      installPrinters: 'Make sure your printers are installed in Windows',
+      controlPanel: 'Control Panel → Devices and Printers',
+      favoritePrinters: '⭐ Favorite Printers',
+      defaultPrinter: '⭐ Default Printer',
+      posPrinters: '🖨️ POS Printers',
+      otherPrinters: '📄 Other Printers',
+      defaultBadge: '✓ Default',
+      favoriteBadge: '⭐ Favorite',
+      statusReady: '✓ Ready',
+      statusPaused: '⏸ Paused',
+      statusError: '❌ Error',
+      statusOffline: '🔌 Offline',
+      statusUnknown: '❓ Unknown',
+      testPrint: 'Test Print',
+      configure: 'Configure',
+      printing: 'Printing...',
+      printSuccess: 'Print sent successfully',
+      printQueued: 'Job queued',
+      printFailed: 'Print failed',
+      checkQueue: 'Check Windows print queue',
+      configurePrinter: 'Configure Printer',
+      printerAlias: 'Custom Name',
+      paperWidth: 'Paper Width',
+      cancel: 'Cancel',
+      save: 'Save',
+      configSaved: 'Settings saved successfully',
+      portChanged: 'Port changed successfully',
+      portInUse: 'Port is in use',
+      pending: 'Pending',
+      completed: 'Completed',
+      failed: 'Failed',
+      autoStartEnabled: 'Auto-start enabled',
+      autoStartDisabled: 'Auto-start disabled',
+      clearFailed: 'Clear Failed',
+      jobRemoved: 'Removed'
+    }
+  };
+
+  let currentLang = 'ar';
+  let printers = [];
+  let config = {};
+  let currentConfigPrinter = null;
+
+  // Toast Notification System
+  function showToast(title, message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+
+    const icons = {
+      success: '✓',
+      error: '❌',
+      warning: '⚠️',
+      info: 'ℹ️'
+    };
+
+    toast.innerHTML = `
+      <div class="toast-icon">${icons[type] || icons.info}</div>
+      <div class="toast-content">
+        <div class="toast-title">${title}</div>
+        <div class="toast-message">${message}</div>
+      </div>
+      <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.animation = 'slideIn 0.3s ease reverse';
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  }
+
+  function switchLanguage(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+    document.getElementById('langAr').classList.toggle('active', lang === 'ar');
+    document.getElementById('langEn').classList.toggle('active', lang === 'en');
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (translations[lang][key]) {
+        if (el.tagName === 'INPUT' || el.tagName === 'BUTTON') {
+          if (el.placeholder !== undefined) el.placeholder = translations[lang][key];
+          if (el.textContent !== undefined && el.tagName === 'BUTTON') el.textContent = translations[lang][key];
+        } else {
+          el.textContent = translations[lang][key];
+        }
+      }
+    });
+
+    if (printers.length > 0) renderPrinters();
+    renderPrintQueue();
+
+    localStorage.setItem('preferredLanguage', lang);
+  }
+
+  async function loadServerStatus() {
+    try {
+      const status = await window.printerAPI.getServerStatus();
+      document.getElementById('serverUrl').value = status.url;
+      document.getElementById('currentPort').textContent = status.port;
+      document.getElementById('newPort').placeholder = status.port;
+      document.getElementById('serverStatusText').textContent = translations[currentLang].running;
+      document.getElementById('serverStatusCard').classList.add('success');
+    } catch (error) {
+      document.getElementById('serverStatusText').textContent = translations[currentLang].stopped;
+      document.getElementById('serverStatusCard').classList.add('error');
+    }
+  }
+
+  async function checkAutoStart() {
+    try {
+      const enabled = await window.printerAPI.getAutoLaunchStatus();
+      const card = document.getElementById('autoStartCard');
+      const text = document.getElementById('autoStartText');
+
+      if (enabled) {
+        text.textContent = translations[currentLang].enabled;
+        card.classList.add('success');
+        card.classList.remove('warning');
+        card.style.cursor = 'default';
+        card.onclick = null;
+      } else {
+        text.textContent = translations[currentLang].disabled;
+        card.classList.add('warning');
+        card.classList.remove('success');
+        card.style.cursor = 'pointer';
+        card.title = translations[currentLang].clickToEnable;
+        card.onclick = enableAutoStart;
+      }
+    } catch (error) {
+      console.error('Failed to check auto-start:', error);
+    }
+  }
+
+  async function enableAutoStart() {
+    try {
+      const result = await window.printerAPI.setAutoLaunch(true);
+      if (result.success) {
+        showToast(translations[currentLang].autoStartEnabled, '', 'success');
+        checkAutoStart();
+      }
+    } catch (error) {
+      showToast(translations[currentLang].printFailed, error.message, 'error');
+    }
+  }
+
+  async function changePort() {
+    const newPort = parseInt(document.getElementById('newPort').value);
+    if (!newPort || newPort < 1024 || newPort > 65535) {
+      showToast(translations[currentLang].printFailed, 'Invalid port number (1024-65535)', 'error');
+      return;
+    }
+
+    try {
+      const result = await window.printerAPI.changePort(newPort);
+      if (result.success) {
+        showToast(translations[currentLang].portChanged, `Port: ${newPort}`, 'success');
+        setTimeout(() => {
+          loadServerStatus();
+        }, 1000);
+      } else {
+        showToast(translations[currentLang].portInUse, result.message, 'error');
+      }
+    } catch (error) {
+      showToast(translations[currentLang].printFailed, error.message, 'error');
+    }
+  }
+
+  async function loadConfig() {
+    try {
+      config = await window.printerAPI.getConfig();
+    } catch (error) {
+      console.error('Failed to load config:', error);
+    }
+  }
+
+  function isPOSPrinter(printerName) {
+    const posKeywords = ['pos', 'thermal', 'receipt', 'epson', 'star', 'tm-', 'tsp', 'xprinter', 'bixolon', 'citizen', 'rongta', 'rp', '80mm', '58mm', 'kitchen', 'bar'];
+    return posKeywords.some(keyword => printerName.toLowerCase().includes(keyword));
+  }
+
+  function getPrinterStatus(printer) {
+    const statusMap = {
+      0: { text: translations[currentLang].statusReady, color: '#10b981' },
+      1: { text: translations[currentLang].statusPaused, color: '#f59e0b' },
+      2: { text: translations[currentLang].statusError, color: '#ef4444' },
+      8: { text: translations[currentLang].statusOffline, color: '#ef4444' },
+    };
+
+    return statusMap[printer.status] || { text: translations[currentLang].statusUnknown, color: '#6b7280' };
+  }
+
+  function toggleFavorite(printerName) {
+    if (!config.favoritePrinters) config.favoritePrinters = [];
+
+    const index = config.favoritePrinters.indexOf(printerName);
+    if (index > -1) {
+      config.favoritePrinters.splice(index, 1);
+    } else {
+      config.favoritePrinters.push(printerName);
+    }
+
+    window.printerAPI.saveConfig(config);
+    renderPrinters();
+  }
+
+  function openConfigModal(printerName) {
+    currentConfigPrinter = printerName;
+    document.getElementById('modalAlias').value = config.printerAliases?.[printerName] || '';
+    document.getElementById('modalPaperWidth').value = config.printerPaperWidths?.[printerName] || 80;
+    document.getElementById('configModal').classList.add('show');
+  }
+
+  function closeConfigModal() {
+    document.getElementById('configModal').classList.remove('show');
+    currentConfigPrinter = null;
+  }
+
+  async function saveConfig() {
+    if (!currentConfigPrinter) return;
+
+    const alias = document.getElementById('modalAlias').value;
+    const paperWidth = parseInt(document.getElementById('modalPaperWidth').value);
+
+    if (!config.printerAliases) config.printerAliases = {};
+    if (!config.printerPaperWidths) config.printerPaperWidths = {};
+
+    config.printerAliases[currentConfigPrinter] = alias;
+    config.printerPaperWidths[currentConfigPrinter] = paperWidth;
+
+    const result = await window.printerAPI.saveConfig(config);
+    if (result.success) {
+      showToast(translations[currentLang].configSaved, currentConfigPrinter, 'success');
+      closeConfigModal();
+      renderPrinters();
+    }
+  }
+
+  async function loadPrinters() {
+    const listEl = document.getElementById('printerList');
+    const btn = document.getElementById('refreshBtn');
+
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span><span>${translations[currentLang].loading}</span>`;
+
+    try {
+      printers = await window.printerAPI.getPrinters();
+      renderPrinters();
+    } catch (error) {
+      showToast(translations[currentLang].printFailed, error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<span>🔄</span><span>${translations[currentLang].refresh}</span>`;
+    }
+  }
+
+  function renderPrinters() {
+    const listEl = document.getElementById('printerList');
+
+    if (printers.length === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state">
+          <p>${translations[currentLang].noPrintersFound}</p>
+          <p style="font-size: 14px; margin-top: 10px;">
+            ${translations[currentLang].installPrinters}<br>
+            ${translations[currentLang].controlPanel}
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    const favoritePrinters = printers.filter(p => config.favoritePrinters?.includes(p.name));
+    const defaultPrinters = printers.filter(p => p.isDefault && !config.favoritePrinters?.includes(p.name));
+    const posPrinters = printers.filter(p => !p.isDefault && !config.favoritePrinters?.includes(p.name) && isPOSPrinter(p.name));
+    const otherPrinters = printers.filter(p => !p.isDefault && !config.favoritePrinters?.includes(p.name) && !isPOSPrinter(p.name));
+
+    let html = '';
+
+    if (favoritePrinters.length > 0) {
+      html += `<div style="margin-bottom: 20px;"><h3 style="color: #f59e0b; font-size: 16px; margin-bottom: 10px;">${translations[currentLang].favoritePrinters}</h3>`;
+      html += favoritePrinters.map(printer => createPrinterCard(printer, true)).join('');
+      html += '</div>';
+    }
+
+    if (defaultPrinters.length > 0) {
+      html += `<div style="margin-bottom: 20px;"><h3 style="color: #10b981; font-size: 16px; margin-bottom: 10px;">${translations[currentLang].defaultPrinter}</h3>`;
+      html += defaultPrinters.map(printer => createPrinterCard(printer)).join('');
+      html += '</div>';
+    }
+
+    if (posPrinters.length > 0) {
+      html += `<div style="margin-bottom: 20px;"><h3 style="color: #667eea; font-size: 16px; margin-bottom: 10px;">${translations[currentLang].posPrinters}</h3>`;
+      html += posPrinters.map(printer => createPrinterCard(printer)).join('');
+      html += '</div>';
+    }
+
+    if (otherPrinters.length > 0) {
+      html += `<div><h3 style="color: #6b7280; font-size: 16px; margin-bottom: 10px;">${translations[currentLang].otherPrinters}</h3>`;
+      html += otherPrinters.map(printer => createPrinterCard(printer)).join('');
+      html += '</div>';
+    }
+
+    listEl.innerHTML = html;
+  }
+
+  function createPrinterCard(printer, isFavorite = false) {
+    const status = getPrinterStatus(printer);
+    const alias = config.printerAliases?.[printer.name];
+    const paperWidth = config.printerPaperWidths?.[printer.name] || 80;
+    const isFav = config.favoritePrinters?.includes(printer.name);
+
+    return `
+    <div class="printer-card ${printer.isDefault ? 'default' : ''} ${isFav ? 'favorite' : ''}">
+      <button class="favorite-btn" onclick="toggleFavorite('${printer.name}')" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+        ${isFav ? '⭐' : '☆'}
+      </button>
+
+      <div class="printer-header">
+        <div style="flex: 1; min-width: 0;">
+          <div class="printer-name">${printer.displayName}</div>
+          ${alias ? `<div class="printer-alias">${alias}</div>` : ''}
+          ${printer.displayName !== printer.name ? `<div class="printer-details">${printer.name}</div>` : ''}
+        </div>
+        <div class="printer-badges" style="flex-shrink: 0;">
+          ${printer.isDefault ? `<span class="printer-badge badge-default">${translations[currentLang].defaultBadge}</span>` : ''}
+          ${isFav ? `<span class="printer-badge badge-favorite">${translations[currentLang].favoriteBadge}</span>` : ''}
+          <span class="printer-badge badge-paper">${paperWidth}mm</span>
+        </div>
+      </div>
+
+      <div class="printer-status" style="background: ${status.color}20; color: ${status.color};">
+        ${status.text}
+      </div>
+
+      <div class="printer-actions">
+        <button class="btn btn-success btn-small" onclick="testPrint('${printer.name}', this, 58)">
+          <span>🖨️</span>
+          <span>58mm</span>
+        </button>
+        <button class="btn btn-success btn-small" onclick="testPrint('${printer.name}', this, 80)">
+          <span>🖨️</span>
+          <span>80mm</span>
+        </button>
+        <button class="btn btn-secondary btn-small" onclick="openConfigModal('${printer.name}')">
+          <span>⚙️</span>
+          <span>${translations[currentLang].configure}</span>
+        </button>
+      </div>
+    </div>
+  `;
+  }
+
+
+
+  async function testPrint(printerName, btn, paperWidth) {
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span><span>${translations[currentLang].printing}</span>`;
+
+    try {
+      const result = await window.printerAPI.testPrint(printerName, paperWidth);
+      if (result.success) {
+        showToast(translations[currentLang].printSuccess, `${printerName} (${paperWidth}mm)`, 'success');
+      } else {
+        showToast(translations[currentLang].printFailed, result.message, 'error');
+      }
+    } catch (error) {
+      showToast(translations[currentLang].printFailed, error.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+    }
+  }
+
+  async function refreshQueue() {
+    try {
+      const queue = await window.printerAPI.getPrintQueue();
+      renderPrintQueue(queue);
+    } catch (error) {
+      console.error('Failed to refresh queue:', error);
+    }
+  }
+
+  function renderPrintQueue(queue = []) {
+    const queueEl = document.getElementById('printQueue');
+    const clearFailedBtn = document.getElementById('clearFailedBtn');
+
+    if (!queue || queue.length === 0) {
+      queueEl.innerHTML = `<div class="empty-state"><p>${translations[currentLang].noJobs}</p></div>`;
+      if (clearFailedBtn) clearFailedBtn.style.display = 'none';
+      return;
+    }
+
+    const failedJobs = queue.filter(job => job.status === 'failed');
+
+    // Show/hide clear failed button
+    if (clearFailedBtn) {
+      clearFailedBtn.style.display = failedJobs.length > 0 ? 'flex' : 'none';
+    }
+
+    queueEl.innerHTML = queue.map(job => {
+      const time = new Date(job.timestamp).toLocaleTimeString();
+      const statusClass = job.status === 'completed' ? 'completed' : job.status === 'failed' ? 'failed' : 'pending';
+      const statusText = translations[currentLang][job.status] || job.status;
+      const paperInfo = job.paperWidth ? ` (${job.paperWidth}mm)` : '';
+
+      return `
+      <div class="queue-item ${statusClass}" data-job-id="${job.id}">
+        <div class="queue-item-info">
+          <div class="queue-item-printer">${job.printerName}${paperInfo}</div>
+          <div class="queue-item-time">${time}</div>
+          ${job.error ? `<div style="color: #ef4444; font-size: 12px;">${job.error}</div>` : ''}
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="queue-item-status status-${job.status}">${statusText}</span>
+          ${job.status === 'failed' ? `
+            <button class="btn btn-secondary btn-small" onclick="removeJob(${job.id})" style="padding: 4px 8px;">
+              <span>×</span>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    }).join('');
+  }
+
+
+  function removeJob(jobId) {
+    window.printerAPI.removeJob(jobId).then(() => {
+      refreshQueue();
+    });
+  }
+
+  function clearFailedJobs() {
+    window.printerAPI.clearFailedJobs().then(() => {
+      showToast(translations[currentLang].clearFailed, translations[currentLang].jobRemoved, 'success');
+      refreshQueue();
+    });
+  }
+
+  // Listen for real-time updates
+  window.printerAPI.onPrintJobUpdate((event, queue) => {
+    renderPrintQueue(queue);
+  });
+
+  window.printerAPI.onPrinterStatusChange((event, data) => {
+    console.log('Printer status changed:', data);
+    loadPrinters();
+  });
+
+  // Initialize
+  window.addEventListener('DOMContentLoaded', async () => {
+    const savedLang = localStorage.getItem('preferredLanguage') || 'ar';
+    switchLanguage(savedLang);
+
+    await loadConfig();
+    loadServerStatus();
+    checkAutoStart();
+    loadPrinters();
+    refreshQueue();
+
+    // Auto-refresh queue every 5 seconds
+    setInterval(refreshQueue, 5000);
+  });
+</script>
+</body>
+</html>
