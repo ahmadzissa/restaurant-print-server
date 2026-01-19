@@ -32,7 +32,8 @@
         "provider": "github",
         "owner": "ahmadzissa",
         "repo": "restaurant-print-server"
-      }
+      },
+
     },
     "nsis": {
       "oneClick": false,
