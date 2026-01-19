@@ -701,7 +701,42 @@ app.whenReady().then(async () => {
     }, 3000);
 
     console.log('🍽️ Restaurant Print Server started');
+
+    // Show settings window on first run
+    checkFirstRun();
 });
+
+// ========== FIRST RUN DETECTION ==========
+function checkFirstRun() {
+    const firstRunFlag = path.join(app.getPath('userData'), 'first-run-complete');
+
+    if (!fs.existsSync(firstRunFlag)) {
+        // First time running - show settings window
+        console.log('First run detected - opening settings window');
+        createSettingsWindow();
+
+        // Create flag file so we know it's not the first run anymore
+        fs.writeFileSync(firstRunFlag, new Date().toISOString(), 'utf8');
+
+        // Show welcome notification
+        showDesktopNotification(
+            '🍽️ Restaurant Print Server',
+            'Welcome! The server is running in your system tray.\n' +
+            'Right-click the printer icon to access settings.',
+            false
+        );
+    } else {
+        // Not first run - stay in tray
+        console.log('Server started in system tray');
+
+        // Optional: Show a subtle notification
+        showDesktopNotification(
+            '✓ Print Server Running',
+            `Server: ${getLocalIP()}:${PORT}`,
+            false
+        );
+    }
+}
 
 app.on("window-all-closed", (e) => e.preventDefault());
 app.on("before-quit", () => { app.isQuitting = true; });
