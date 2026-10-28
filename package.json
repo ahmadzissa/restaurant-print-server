@@ -1,0 +1,56 @@
+{
+  "name": "restaurant-print-server",
+  "version": "1.3.1",
+  "description": "Local print server for thermal printers",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "publish": "electron-builder --win --x64 --publish always"
+  },
+  "author": "Yalla Menu",
+  "license": "MIT",
+  "dependencies": {
+    "express": "4.18.2",
+    "cors": "2.8.5",
+    "body-parser": "1.20.2",
+    "auto-launch": "5.0.6",
+    "electron-squirrel-startup": "1.0.0",
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "40.0.0",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "files": [
+      "main.js", "preload.js", "device-preload.js", "remote-print.js",
+      "receipt-printing.js", "settings.html", "assets/**/*", "package.json"
+    ],
+    "extraResources": [
+      { "from": "windows-receipt-print.ps1", "to": "windows-receipt-print.ps1" }
+    ],
+    "appId": "com.yallamenu.printserver",
+    "productName": "YallaMenu Print Manager",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico",
+      "publish": {
+        "provider": "github",
+        "owner": "ahmadzissa",
+        "repo": "restaurant-print-server"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

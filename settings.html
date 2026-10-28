@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YallaMenu Print Manager - Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      transition: all 0.3s;
+    }
+
+    [dir="rtl"] body {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    }
+
+    /* Authentication Required Overlay */
+    #auth-required {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #auth-required.show {
+      display: flex;
+    }
+
+    .auth-box {
+      background: white;
+      padding: 40px;
+      border-radius: 15px;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .auth-box h2 {
+      color: #667eea;
+      margin-bottom: 20px;
+    }
+
+    .auth-box p {
+      margin-bottom: 30px;
+      color: #666;
+    }
+
+    .auth-box button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .auth-box button:hover {
+      transform: scale(1.05);
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    /* Header with Logo and Language Switcher */
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 25px 30px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 8px 16px;
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+    }
+
+    .logo-img {
+      width: 40px;
+      height: 40px;
+      background: white;
+      border-radius: 8px;
+      padding: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .brand-text {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .header-center {
+      flex: 1;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .lang-switcher {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 4px;
+      backdrop-filter: blur(10px);
+    }
+
+    .lang-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 16px;
+      background: transparent;
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+
+    .lang-btn.active {
+      background: white;
+      color: #667eea;
+    }
+
+    .lang-btn:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Tab Navigation */
+    .tabs {
+      display: flex;
+      background: #f5f5f5;
+      border-bottom: 2px solid #ddd;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      background: #f5f5f5;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s;
+    }
+
+    .tab:hover {
+      background: #e8e8e8;
+    }
+
+    .tab.active {
+      background: white;
+      color: #667eea;
+      border-bottom: 3px solid #667eea;
+    }
+
+    /* Tab Content */
+    .tab-content {
+      display: none;
+      padding: 30px;
+      animation: fadeIn 0.3s;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Store Management Tab */
+    .store-section {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .connection-status {
+      display: inline-block;
+      padding: 15px 30px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .connection-status.connected {
+      background: #d4edda;
+      color: #155724;
+      border: 2px solid #c3e6cb;
+    }
+
+    .connection-status.disconnected {
+      background: #f8d7da;
+      color: #721c24;
+      border: 2px solid #f5c6cb;
+    }
+
+    .manage-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 20px 50px;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .manage-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .manage-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-top: 40px;
+    }
+
+    .quick-link {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+
+    .quick-link:hover {
+      background: #667eea;
+      color: white;
+      border-color: #764ba2;
+      transform: translateY(-5px);
+    }
+
+    .quick-link i {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    /* Printer Settings Tab */
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+
+    .section h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+
+    .info-box {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border-left: 4px solid #667eea;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    /* Favorite Printers Section */
+    .favorites-section {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      border-left: 4px solid #ffc107;
+    }
+
+    .favorites-section h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .favorite-printer-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 2px solid #ffc107;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .favorite-printer-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .favorite-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .favorite-star {
+      font-size: 24px;
+      color: #ffc107;
+    }
+
+    .favorite-name {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .favorite-alias {
+      color: #666;
+      font-size: 14px;
+    }
+
+    /* Regular Printer Cards */
+    .printer-card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      border: 2px solid #eee;
+      transition: all 0.3s;
+    }
+
+    .printer-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+    }
+
+    .printer-card.is-favorite {
+      border-color: #ffc107;
+      background: linear-gradient(to right, #fff 0%, #fffef5 100%);
+    }
+
+    .printer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .printer-name {
+      font-weight: 600;
+      font-size: 18px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .star-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 5px;
+      transition: transform 0.2s;
+    }
+
+    .star-btn:hover {
+      transform: scale(1.2);
+    }
+
+    .star-btn.active {
+      color: #ffc107;
+    }
+
+    .star-btn.inactive {
+      color: #ddd;
+    }
+
+    .printer-status {
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-ready {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .printer-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .print-method-control {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .print-method-control label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .print-method-control select {
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .print-method-control p {
+      color: #666;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    input, select {
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5568d3;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #218838;
+    }
+
+    .btn-danger {
+      background: #dc3545;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #c82333;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+
+    /* Print Queue */
+    .print-job {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-left: 4px solid #667eea;
+    }
+
+    .print-job.failed {
+      border-left-color: #dc3545;
+    }
+
+    .print-job.completed {
+      border-left-color: #28a745;
+    }
+
+    .job-status {
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status-completed, .status-submitted {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-failed {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #667eea;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .tabs {
+        flex-direction: column;
+      }
+
+      .printer-controls {
+        flex-direction: column;
+      }
+
+      .printer-controls button,
+      .printer-controls input,
+      .printer-controls select {
+        width: 100%;
+      }
+    }
+  </style>
+  <script type="text/javascript" nonce="9eae5193defa4ac1be6c97288a4" src="//local.adguard.org?ts=1769357305411&amp;type=content-script&amp;dmn=ppl-ai-code-interpreter-files.s3.amazonaws.com&amp;url=https%3A%2F%2Fppl-ai-code-interpreter-files.s3.amazonaws.com%2Fweb%2Fdirect-files%2F90c848d8200cdfa768181755547fcc6c%2F2b920cfd-cbb3-4993-a9c3-d912aca4494c%2Ffa0ee713.html%3Fresponse-content-disposition%3Dattachment%253B%2520filename%253Dsettings_complete.html%253B%2520filename%252A%253DUTF-8%2527%2527settings_complete.html%26AWSAccessKeyId%3DASIA2F3EMEYEXCQUPQRH%26Signature%3DahHrLQ7WWw4%252F7OeMH8r2%252BVHXtsQ%253D%26x-amz-security-token%3DIQoJb3JpZ2luX2VjEGEaCXVzLWVhc3QtMSJIMEYCIQDm5Yst6Q8GZaAkAP1Ra%252F7LzMxGaem81bz099tT2aW1hwIhAOmrI26KOS3BKtdvQHJX7jkH6rnFMYpGwajuslMF3hTVKvMECCoQARoMNjk5NzUzMzA5NzA1IgypnRfctuAbJQcLImkq0ASd8fb7QJGarfH7SA4ywQHHM8qq1dFWaLsI4Do7A9R9nVrzoB6box7vtc3b95VIaAsbnr2KzjjMJTuEMDDKeCGkZ9z47M14UIJp%252FzlHYJkmGbY1R0yIutV7duvDM5LKNPGv4rjoKUGr3VwERCinJYj7nB5md2cIwDFPqlXwvsOlJ1JJTpSNlHBxLT4MwGZ%252Bs5ZoSsDalNKHgVStfncx6cJZnQmquos1OWmMPuFOdTLhEfrMvO1vWqST11HZ62lpg%252BYbCafqlsHr23NQujG909DsQtDPE6CamfKvAQdeigwYHkAkcEj3Xyehf8QcgqsyhNx3TAuAnBzN%252Bd8CyYQl%252BaMjEG1kkoMiP24L89JtzfuNf33Vaf9P2x0Fu3o3oIcJoMEqb0kt%252BlPg2r%252FswJ91bbLRK8ksmcllMf267J%252Fs08MMnfQBNv%252BfaJLrZvDvGfGCz2uaL%252FuZMacC5r5C5Jqasb8ABRAfaA%252BsuDFcUcejMr66bcnMiao7sbEhhabk9CKOkludaej4vPpQagckdsJj%252BaG02RNbLk8Suew9Gnp5WhEyQYL4DyytSqKn1UTrwG1mqM6AeHbspoqg1Dna7l2zzOxZtxSdUs5AT5JPgqwAXjG7HiVeZFJYdvq%252FfCPeD5sjD0vHTBQ1PXYm82tXFcMnm599VGFIRn4KWH2UK6kz0L%252BMMmOVVbZHZS12Lk%252FD8%252BVN5hWfYc6Wr8M%252Fc8N27h65zRIYxU7kSdnOGdNbrtmvYr%252Fs6cJkcXzB1fudA9sdtD3LWSzOKvUWguK2UdCqMoTx%252BahXML2O2csGOpcB7lO9hHpYyF6sa8sbpOvEENb3XMlQpYBwzDDkfQ1eU1mkNPhepekySp9GKHybIznAUJLYdGvCDJvv1c%252Fr%252Fu56pS6oibUkNR1aqjHZtbjnYMIk%252BuZU1FmOX%252BhiCABu3nmQwUZPSWsWXShY7ok9qrVBUS%252Fs9wLSQqu%252FFrBzYWz7J4c19bQPNB0v5eLYW8fe2fHjQ8ZwMNXfUQ%253D%253D%26Expires%3D1769360960&amp;app=chrome.exe&amp;css=3&amp;js=1&amp;rel=0&amp;rji=0&amp;sbe=1"></script><script type="text/javascript" nonce="9eae5193defa4ac1be6c97288a4" src="//local.adguard.org?ts=1769357305411&amp;name=AdGuard%20Assistant&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;name=Web%20of%20Trust&amp;type=user-script"></script></head>
+<body>
+<!-- Authentication Required Overlay -->
+<div id="auth-required">
+  <div class="auth-box">
+    <h2>🔒 <span data-i18n="authRequired">Authentication Required</span></h2>
+    <p data-i18n="authMessage">You need to login to Yala Menu to use this application</p>
+    <button onclick="loginToApp()" data-i18n="loginBtn">Login to Yala Menu</button>
+  </div>
+</div>
+
+<!-- Main Container -->
+<div class="container">
+  <!-- Header with Logo and Language Switcher -->
+  <div class="header">
+    <div class="logo-brand">
+      <img src="assets/icon.ico" alt="Logo" class="logo-img">
+      <span class="brand-text">Yalla Menu</span>
+    </div>
+
+    <div class="header-center">
+      <h1 data-i18n="title">YallaMenu Print Manager</h1>
+      <p id="server-info" data-i18n="subtitle">Manage thermal receipt printers</p>
+    </div>
+
+    <div class="lang-switcher">
+      <button class="lang-btn" onclick="switchLanguage('ar')" id="langAr">عربي</button>
+      <button class="lang-btn active" onclick="switchLanguage('en')" id="langEn">English</button>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('store')">
+      <span data-i18n="manageStoreTab">🏪 Manage Your Store</span>
+    </button>
+    <button class="tab" onclick="switchTab('printers')">
+      <span data-i18n="printerSettingsTab">🖨️ Printer Settings</span>
+    </button>
+  </div>
+
+  <!-- Tab Contents -->
+
+  <!-- Store Management Tab -->
+  <div id="store-tab" class="tab-content active">
+    <div class="store-section">
+      <div id="connection-indicator" class="connection-status disconnected">
+        <span data-i18n="notConnected">⚠️ Not Connected</span>
+      </div>
+
+      <div>
+        <button class="manage-btn" id="manage-store-btn" onclick="manageStore()">
+          <span id="manage-btn-text" data-i18n="openStoreManagement">🏪 Open Store Management</span>
+        </button>
+      </div>
+
+      <div class="quick-links">
+        <div class="quick-link" onclick="navigateTo('printers')">
+          <div>🖨️</div>
+          <strong data-i18n="managePrintersLink">Manage Printers</strong>
+        </div>
+        <div class="quick-link" onclick="navigateTo('orders')">
+          <div>📋</div>
+          <strong data-i18n="ordersTablesLink">Orders & Tables</strong>
+        </div>
+        <div class="quick-link" onclick="navigateTo('menu')">
+          <div>📖</div>
+          <strong data-i18n="menuSectionsLink">Menu Sections</strong>
+        </div>
+        <div class="quick-link" onclick="navigateTo('settings')">
+          <div>⚙️</div>
+          <strong data-i18n="settingsLink">Settings</strong>
+        </div>
+        <div class="quick-link" onclick="navigateTo('qr')">
+          <div>📱</div>
+          <strong data-i18n="qrCodeLink">QR Code</strong>
+        </div>
+        <div class="quick-link" onclick="navigateTo('design')">
+          <div>🎨</div>
+          <strong data-i18n="themeDesignLink">Theme Design</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printer Settings Tab -->
+  <div id="printers-tab" class="tab-content">
+    <!-- Server Status Section -->
+    <div class="section">
+      <h2 data-i18n="serverSettings">⚙️ Server Settings</h2>
+      <div class="info-box">
+        <div class="info-row">
+          <strong data-i18n="serverStatus">Server Status:</strong>
+          <span id="status-badge">🔄 <span data-i18n="checking">Checking...</span></span>
+        </div>
+        <div class="info-row">
+          <strong data-i18n="serverURL">Server URL:</strong>
+          <span id="server-url">Loading...</span>
+        </div>
+        <div class="info-row">
+          <strong data-i18n="port">Port:</strong>
+          <span id="current-port">9100</span>
+        </div>
+        <div class="info-row">
+          <strong data-i18n="version">Version:</strong>
+          <span id="app-version">1.0.0</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <input type="number" id="new-port" placeholder="9100" style="flex: 1;" />
+        <button class="btn-primary" onclick="changeServerPort()" data-i18n="changePort">Change Port</button>
+      </div>
+
+      <div style="margin-top: 15px;">
+        <label style="display: flex; align-items: center; gap: 10px;">
+          <input type="checkbox" id="autolaunch-checkbox" onchange="toggleAutoLaunch()" />
+          <span data-i18n="autoStart">Start automatically with Windows</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Favorite Printers Section -->
+    <div class="favorites-section">
+      <h2>⭐ <span data-i18n="favoritePrinters">Favorite Printers</span></h2>
+      <div id="favorites-list">
+        <div class="empty-state" data-i18n="noFavorites">No favorite printers yet</div>
+      </div>
+    </div>
+
+    <!-- Print Queue Section -->
+    <div class="section">
+      <h2 data-i18n="printQueue">📋 Print Queue</h2>
+      <div style="margin-bottom: 15px;">
+        <button class="btn-danger" onclick="clearFailedJobs()" data-i18n="clearFailed">Clear Failed Jobs</button>
+      </div>
+      <div id="print-queue">
+        <div class="loading" data-i18n="loadingQueue">Loading print queue...</div>
+      </div>
+    </div>
+
+    <!-- Available Printers Section -->
+    <div class="section">
+      <h2 data-i18n="availablePrinters">🖨️ Available Printers</h2>
+      <button class="btn-primary" onclick="refreshPrinters()" style="margin-bottom: 15px;">
+        🔄 <span data-i18n="refresh">Refresh</span>
+      </button>
+      <div id="printers-list">
+        <div class="loading" data-i18n="loadingPrinters">Loading printers...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Translations
+  const translations = {
+    ar: {
+      title: 'خادم الطباعة للمطاعم',
+      subtitle: 'إدارة طابعات الإيصالات الحرارية',
+      authRequired: 'المصادقة مطلوبة',
+      authMessage: 'تحتاج إلى تسجيل الدخول إلى يلا منيو لاستخدام هذا التطبيق',
+      loginBtn: 'تسجيل الدخول إلى يلا منيو',
+      manageStoreTab: '🏪 إدارة متجرك',
+      printerSettingsTab: '🖨️ إعدادات الطابعة',
+      connected: '✅ متصل',
+      notConnected: '⚠️ غير متصل',
+      openStoreManagement: '🏪 فتح إدارة المتجر',
+      managePrintersLink: 'إدارة الطابعات',
+      ordersTablesLink: 'الطلبات والطاولات',
+      menuSectionsLink: 'أقسام القائمة',
+      settingsLink: 'الإعدادات',
+      qrCodeLink: 'رمز QR',
+      themeDesignLink: 'تصميم المظهر',
+      serverSettings: '⚙️ إعدادات الخادم',
+      serverStatus: 'حالة الخادم:',
+      serverURL: 'عنوان الخادم:',
+      port: 'المنفذ:',
+      version: 'الإصدار:',
+      checking: 'جاري التحقق...',
+      changePort: 'تغيير المنفذ',
+      autoStart: 'البدء تلقائياً مع ويندوز',
+      favoritePrinters: 'الطابعات المفضلة',
+      noFavorites: 'لا توجد طابعات مفضلة بعد',
+      printQueue: '📋 قائمة انتظار الطباعة',
+      clearFailed: 'مسح الفاشلة',
+      loadingQueue: 'جاري تحميل قائمة الانتظار...',
+      availablePrinters: '🖨️ الطابعات المتاحة',
+      refresh: 'تحديث',
+      loadingPrinters: 'جاري تحميل الطابعات...',
+      testPrint: 'طباعة تجريبية',
+      printMethod: 'طريقة الطباعة',
+      printMethodAuto: 'تلقائية (موصى بها)',
+      printMethodStandard: 'قياسية',
+      printMethodGraphics: 'توافق رسومات ويندوز',
+      printMethodHint: 'تستخدم الطريقة التلقائية الطباعة القياسية للطابعات التي يتضمن اسمها Epson، ورسومات ويندوز لجميع الطابعات الأخرى. إذا كان الإخراج غير مقروء، يمكنك تغيير الطريقة لهذه الطابعة فقط. احفظ قبل التجربة.',
+      save: 'حفظ',
+      running: 'يعمل',
+      stopped: 'متوقف'
+    },
+    en: {
+      title: 'YallaMenu Print Manager',
+      subtitle: 'Manage thermal receipt printers',
+      authRequired: 'Authentication Required',
+      authMessage: 'You need to login to Yala Menu to use this application',
+      loginBtn: 'Login to Yala Menu',
+      manageStoreTab: '🏪 Manage Your Store',
+      printerSettingsTab: '🖨️ Printer Settings',
+      connected: '✅ Connected',
+      notConnected: '⚠️ Not Connected',
+      openStoreManagement: '🏪 Open Store Management',
+      managePrintersLink: 'Manage Printers',
+      ordersTablesLink: 'Orders & Tables',
+      menuSectionsLink: 'Menu Sections',
+      settingsLink: 'Settings',
+      qrCodeLink: 'QR Code',
+      themeDesignLink: 'Theme Design',
+      serverSettings: '⚙️ Server Settings',
+      serverStatus: 'Server Status:',
+      serverURL: 'Server URL:',
+      port: 'Port:',
+      version: 'Version:',
+      checking: 'Checking...',
+      changePort: 'Change Port',
+      autoStart: 'Start automatically with Windows',
+      favoritePrinters: 'Favorite Printers',
+      noFavorites: 'No favorite printers yet',
+      printQueue: '📋 Print Queue',
+      clearFailed: 'Clear Failed Jobs',
+      loadingQueue: 'Loading print queue...',
+      availablePrinters: '🖨️ Available Printers',
+      refresh: 'Refresh',
+      loadingPrinters: 'Loading printers...',
+      testPrint: 'Test Print',
+      printMethod: 'Print method',
+      printMethodAuto: 'Automatic (recommended)',
+      printMethodStandard: 'Standard',
+      printMethodGraphics: 'Windows graphics compatibility',
+      printMethodHint: 'Automatic uses Standard for Epson-named printers and Windows graphics for all other printers. If output is unreadable, override the method for this printer only. Save before testing.',
+      save: 'Save',
+      running: 'Running',
+      stopped: 'Stopped'
+    }
+  };
+
+  let currentLang = 'en';
+  let isAuthenticated = false;
+  let printerConfig = {};
+
+  // Language switcher
+  function switchLanguage(lang) {
+    currentLang = lang;
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+    document.getElementById('langAr').classList.toggle('active', lang === 'ar');
+    document.getElementById('langEn').classList.toggle('active', lang === 'en');
+
+    // Update all translatable elements
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (translations[lang][key]) {
+        if (el.tagName === 'INPUT' || el.tagName === 'BUTTON') {
+          if (el.placeholder !== undefined) {
+            el.placeholder = translations[lang][key];
+          }
+          if (el.textContent !== undefined && el.tagName === 'BUTTON') {
+            el.textContent = translations[lang][key];
+          }
+        } else {
+          el.textContent = translations[lang][key];
+        }
+      }
+    });
+
+    localStorage.setItem('preferredLanguage', lang);
+  }
+
+  // Initialize app
+  async function init() {
+    console.log('Initializing app...');
+
+    // Load saved language
+    const savedLang = localStorage.getItem('preferredLanguage') || 'en';
+    switchLanguage(savedLang);
+
+    // Check authentication status
+    const authStatus = await window.printerAPI.getConnectionStatus();
+    isAuthenticated = authStatus.connected;
+
+    console.log('Auth status:', authStatus);
+
+    if (!isAuthenticated) {
+      document.getElementById('auth-required').classList.add('show');
+      setTimeout(() => {
+        loginToApp();
+      }, 1000);
+    } else {
+      updateConnectionStatus(true);
+      loadApp();
+    }
+
+    // Listen for connection status changes
+    window.printerAPI.onConnectionStatusChanged((event, data) => {
+      console.log('Connection status changed:', data);
+      isAuthenticated = data.connected;
+      updateConnectionStatus(data.connected);
+
+      if (data.connected) {
+        document.getElementById('auth-required').classList.remove('show');
+        loadApp();
+      } else {
+        document.getElementById('auth-required').classList.add('show');
+      }
+    });
+  }
+
+  async function loginToApp() {
+    try {
+      await window.printerAPI.connectToYala();
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Failed to open login window');
+    }
+  }
+
+  function updateConnectionStatus(connected) {
+    const indicator = document.getElementById('connection-indicator');
+    const manageBtn = document.getElementById('manage-store-btn');
+
+    if (connected) {
+      indicator.className = 'connection-status connected';
+      indicator.innerHTML = `<span data-i18n="connected">${translations[currentLang].connected}</span>`;
+      manageBtn.disabled = false;
+    } else {
+      indicator.className = 'connection-status disconnected';
+      indicator.innerHTML = `<span data-i18n="notConnected">${translations[currentLang].notConnected}</span>`;
+      manageBtn.disabled = true;
+    }
+  }
+
+  async function loadApp() {
+    if (!isAuthenticated) return;
+
+    await Promise.all([
+      loadServerInfo(),
+      loadAppVersion(),
+      loadAutoLaunchStatus(),
+      loadConfig(),
+      refreshPrinters(),
+      loadPrintQueue()
+    ]);
+
+    window.printerAPI.onPrintJobUpdate((event, jobs) => {
+      renderPrintQueue(jobs);
+    });
+
+    window.printerAPI.onPrinterStatusChange((event, data) => {
+      console.log('Printer status changed:', data);
+      refreshPrinters();
+    });
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    event.target.classList.add('active');
+    document.getElementById(tabName + '-tab').classList.add('active');
+  }
+
+  async function manageStore() {
+    if (!isAuthenticated) {
+      loginToApp();
+      return;
+    }
+
+    try {
+      await window.printerAPI.showLoginWindow();
+    } catch (error) {
+      console.error('Error opening store:', error);
+      alert('Failed to open store management');
+    }
+  }
+
+  async function navigateTo(section) {
+    if (!isAuthenticated) {
+      loginToApp();
+      return;
+    }
+
+    try {
+      await window.printerAPI.navigateToSection(section);
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  }
+
+  async function loadServerInfo() {
+    try {
+      const status = await window.printerAPI.getServerStatus();
+      document.getElementById('status-badge').innerHTML = status.running ?
+              `✅ <span data-i18n="running">${translations[currentLang].running}</span>` :
+              `❌ <span data-i18n="stopped">${translations[currentLang].stopped}</span>`;
+      document.getElementById('server-url').textContent = status.url;
+      document.getElementById('current-port').textContent = status.port;
+      document.getElementById('server-info').textContent = `Server running on ${status.url}`;
+    } catch (error) {
+      console.error('Failed to load server info:', error);
+    }
+  }
+
+  async function loadAppVersion() {
+    try {
+      const version = await window.printerAPI.getAppVersion();
+      document.getElementById('app-version').textContent = version;
+    } catch (error) {
+      console.error('Failed to load version:', error);
+    }
+  }
+
+  async function loadAutoLaunchStatus() {
+    try {
+      const enabled = await window.printerAPI.getAutoLaunchStatus();
+      document.getElementById('autolaunch-checkbox').checked = enabled;
+    } catch (error) {
+      console.error('Failed to load auto-launch status:', error);
+    }
+  }
+
+  async function toggleAutoLaunch() {
+    const checkbox = document.getElementById('autolaunch-checkbox');
+    try {
+      const result = await window.printerAPI.setAutoLaunch(checkbox.checked);
+      if (!result.success) {
+        alert('Failed to change auto-launch setting');
+        checkbox.checked = !checkbox.checked;
+      }
+    } catch (error) {
+      console.error('Error toggling auto-launch:', error);
+      checkbox.checked = !checkbox.checked;
+    }
+  }
+
+  async function changeServerPort() {
+    const newPort = parseInt(document.getElementById('new-port').value);
+    if (!newPort || newPort < 1024 || newPort > 65535) {
+      alert('Please enter a valid port number (1024-65535)');
+      return;
+    }
+
+    try {
+      const result = await window.printerAPI.changePort(newPort);
+      if (result.success) {
+        alert(result.message);
+        await loadServerInfo();
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert('Failed to change port: ' + error.message);
+    }
+  }
+
+  async function loadConfig() {
+    try {
+      printerConfig = await window.printerAPI.getConfig();
+      console.log('Config loaded:', printerConfig);
+    } catch (error) {
+      console.error('Failed to load config:', error);
+    }
+  }
+
+  async function refreshPrinters() {
+    if (!isAuthenticated) return;
+
+    try {
+      const printers = await window.printerAPI.getPrinters();
+      renderPrinters(printers);
+      renderFavorites(printers);
+    } catch (error) {
+      console.error('Failed to load printers:', error);
+      document.getElementById('printers-list').innerHTML =
+              '<div class="empty-state">Failed to load printers</div>';
+    }
+  }
+
+  function renderFavorites(printers) {
+    const container = document.getElementById('favorites-list');
+    const favorites = printerConfig.favoritePrinters || [];
+
+    if (favorites.length === 0) {
+      container.innerHTML = `<div class="empty-state" data-i18n="noFavorites">${translations[currentLang].noFavorites}</div>`;
+      return;
+    }
+
+    const favoritePrinters = printers.filter(p => favorites.includes(p.name));
+
+    container.innerHTML = favoritePrinters.map(printer => {
+      const alias = printerConfig.printerAliases?.[printer.name] || printer.displayName;
+      const paperWidth = printerConfig.printerPaperWidths?.[printer.name] || 80;
+
+      return `
+                    <div class="favorite-printer-card">
+                        <div class="favorite-info">
+                            <span class="favorite-star">⭐</span>
+                            <div>
+                                <div class="favorite-name">${alias}</div>
+                                <div class="favorite-alias">${printer.displayName} • ${paperWidth}mm</div>
+                            </div>
+                        </div>
+                        <button class="btn-success" onclick='testPrint("${printer.name}")'>
+                            🖨️ <span data-i18n="testPrint">${translations[currentLang].testPrint}</span>
+                        </button>
+                    </div>
+                `;
+    }).join('');
+  }
+
+  function escapePrinterSettingHtml(value) {
+    return String(value).replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[character]));
+  }
+
+  function getPrinterPrintMode(printerName) {
+    const mode = printerConfig.printerPrintModes?.[printerName];
+    return ['auto', 'electron', 'windows-graphics'].includes(mode) ? mode : 'auto';
+  }
+
+  function renderPrinters(printers) {
+    const container = document.getElementById('printers-list');
+
+    if (!printers || printers.length === 0) {
+      container.innerHTML = '<div class="empty-state">No printers found</div>';
+      return;
+    }
+
+    const favorites = printerConfig.favoritePrinters || [];
+
+    container.innerHTML = printers.map(printer => {
+      const alias = printerConfig.printerAliases?.[printer.name] || '';
+      const paperWidth = printerConfig.printerPaperWidths?.[printer.name] || 80;
+      const printerIp = printerConfig.printerIPs?.[printer.name] || '192.168.68.100';
+      const printMode = getPrinterPrintMode(printer.name);
+      const modeId = escapePrinterSettingHtml(`mode-${printer.name}`);
+      const modeHintId = escapePrinterSettingHtml(`mode-hint-${printer.name}`);
+      const statusClass = printer.status === 0 ? 'status-ready' : 'status-error';
+      const statusText = printer.status === 0 ? '✅ Ready' : '⚠️ Error';
+      const isFavorite = favorites.includes(printer.name);
+      const cardClass = isFavorite ? 'is-favorite' : '';
+
+      return `
+                    <div class="printer-card ${cardClass}">
+                        <div class="printer-header">
+                            <div class="printer-name">
+                                <button class="star-btn ${isFavorite ? 'active' : 'inactive'}"
+                                        onclick='toggleFavorite("${printer.name}")'>
+                                    ${isFavorite ? '⭐' : '☆'}
+                                </button>
+                                ${printer.displayName}
+                            </div>
+                            <span class="printer-status ${statusClass}">${statusText}</span>
+                        </div>
+
+                        <div class="print-method-control">
+                            <label for="${modeId}" data-i18n="printMethod">${translations[currentLang].printMethod}</label>
+                            <select id="${modeId}" aria-describedby="${modeHintId}">
+                                <option value="auto" ${printMode === 'auto' ? 'selected' : ''} data-i18n="printMethodAuto">${translations[currentLang].printMethodAuto}</option>
+                                <option value="electron" ${printMode === 'electron' ? 'selected' : ''} data-i18n="printMethodStandard">${translations[currentLang].printMethodStandard}</option>
+                                <option value="windows-graphics" ${printMode === 'windows-graphics' ? 'selected' : ''} data-i18n="printMethodGraphics">${translations[currentLang].printMethodGraphics}</option>
+                            </select>
+                            <p id="${modeHintId}" data-i18n="printMethodHint">${translations[currentLang].printMethodHint}</p>
+                        </div>
+
+                        <div class="printer-controls">
+                            <input type="text"
+                                   placeholder="Printer alias"
+                                   value="${alias}"
+                                   id="alias-${printer.name}"
+                                   style="flex: 1; min-width: 150px;" />
+
+                            <select id="width-${printer.name}" style="width: 120px;">
+                                <option value="58" ${paperWidth == 58 ? 'selected' : ''}>58mm</option>
+                                <option value="80" ${paperWidth == 80 ? 'selected' : ''}>80mm</option>
+                            </select>
+
+                            <input type="text"
+                                   placeholder="Printer IP"
+                                   value="${printerIp}"
+                                   id="ip-${printer.name}"
+                                   style="flex: 1; min-width: 150px;" />
+
+                            <button class="btn-primary" onclick='savePrinterSettings("${printer.name}")'>
+                                💾 <span data-i18n="save">${translations[currentLang].save}</span>
+                            </button>
+
+                            <button class="btn-success" onclick='testPrint("${printer.name}")'>
+                                🖨️ <span data-i18n="testPrint">${translations[currentLang].testPrint}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+    }).join('');
+  }
+
+  async function toggleFavorite(printerName) {
+    if (!isAuthenticated) {
+      loginToApp();
+      return;
+    }
+
+    try {
+      let favorites = printerConfig.favoritePrinters || [];
+      const index = favorites.indexOf(printerName);
+
+      if (index > -1) {
+        favorites.splice(index, 1);
+      } else {
+        favorites.push(printerName);
+      }
+
+      const updatedConfig = {
+        ...printerConfig,
+        favoritePrinters: favorites
+      };
+
+      const result = await window.printerAPI.saveConfig(updatedConfig);
+      if (result.success) {
+        printerConfig = updatedConfig;
+        await refreshPrinters();
+      } else {
+        alert('Failed to update favorite');
+      }
+    } catch (error) {
+      alert('Error updating favorite: ' + error.message);
+    }
+  }
+
+  async function savePrinterSettings(printerName) {
+    if (!isAuthenticated) {
+      loginToApp();
+      return;
+    }
+
+    try {
+      const alias = document.getElementById(`alias-${printerName}`).value;
+      const width = parseInt(document.getElementById(`width-${printerName}`).value);
+      const ip = document.getElementById(`ip-${printerName}`).value;
+      const requestedMode = document.getElementById(`mode-${printerName}`).value;
+      const printMode = ['auto', 'electron', 'windows-graphics'].includes(requestedMode) ? requestedMode : 'auto';
+
+      const updatedConfig = {
+        ...printerConfig,
+        printerAliases: { ...printerConfig.printerAliases, [printerName]: alias },
+        printerPaperWidths: { ...printerConfig.printerPaperWidths, [printerName]: width },
+        printerIPs: { ...printerConfig.printerIPs, [printerName]: ip },
+        printerPrintModes: { ...printerConfig.printerPrintModes, [printerName]: printMode }
+      };
+
+      const result = await window.printerAPI.saveConfig(updatedConfig);
+      if (result.success) {
+        printerConfig = updatedConfig;
+        alert('Settings saved successfully');
+      } else {
+        alert('Failed to save settings');
+      }
+    } catch (error) {
+      alert('Error saving settings: ' + error.message);
+    }
+  }
+
+  async function testPrint(printerName) {
+    if (!isAuthenticated) {
+      loginToApp();
+      return;
+    }
+
+    try {
+      const width = printerConfig.printerPaperWidths?.[printerName] || 80;
+      const result = await window.printerAPI.testPrint(printerName, width);
+
+      if (result.success) {
+        alert(`Test print sent to ${printerName}`);
+      } else {
+        alert('Test print failed: ' + result.message);
+      }
+    } catch (error) {
+      alert('Test print error: ' + error.message);
+    }
+  }
+
+  async function loadPrintQueue() {
+    if (!isAuthenticated) return;
+
+    try {
+      const jobs = await window.printerAPI.getPrintQueue();
+      renderPrintQueue(jobs);
+    } catch (error) {
+      console.error('Failed to load print queue:', error);
+    }
+  }
+
+  function renderPrintQueue(jobs) {
+    const container = document.getElementById('print-queue');
+
+    if (!jobs || jobs.length === 0) {
+      container.innerHTML = '<div class="empty-state">No recent print jobs</div>';
+      return;
+    }
+
+    container.innerHTML = jobs.map(job => {
+      const statusClass = `status-${job.status}`;
+      const jobClass = job.status;
+      const time = new Date(job.timestamp).toLocaleTimeString();
+
+      return `
+                    <div class="print-job ${jobClass}">
+                        <div>
+                            <strong>${job.printerName}</strong> (${job.paperWidth}mm)<br>
+                            <small>${time}</small>
+                        </div>
+                        <div>
+                            <span class="job-status ${statusClass}">${job.status.toUpperCase()}</span>
+                            ${job.error ? `<br><small style="color: red;">${job.error}</small>` : ''}
+                        </div>
+                    </div>
+                `;
+    }).join('');
+  }
+
+  async function clearFailedJobs() {
+    if (!isAuthenticated) {
+      loginToApp();
+      return;
+    }
+
+    try {
+      const result = await window.printerAPI.clearFailedJobs();
+      if (result.success) {
+        alert(`${result.removed} failed jobs removed`);
+        await loadPrintQueue();
+      }
+    } catch (error) {
+      alert('Error clearing jobs: ' + error.message);
+    }
+  }
+
+  // Initialize on load
+  init();
+</script>
+</body>
+</html>
