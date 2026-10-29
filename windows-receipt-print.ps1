@@ -83,7 +83,7 @@ public static class WindowsReceiptGraphics
     private const int PreviewDpi = 203;
     private const long MaximumPixels = 20000000;
 
-    private static Bitmap LoadMonochrome(string path, out bool[] inkRows)
+    private static Bitmap LoadReceipt(string path, out bool[] inkRows)
     {
         inkRows = null;
         if (!File.Exists(path) || new FileInfo(path).Length > 20L * 1024 * 1024)
@@ -108,7 +108,8 @@ public static class WindowsReceiptGraphics
             if (source.RawFormat.Guid != ImageFormat.Png.Guid || source.Width < 1 || source.Width > 2048 ||
                 source.Height < 1 || source.Height > 60000 || (long)source.Width * source.Height > MaximumPixels)
                 throw new ReceiptPrintFailure("invalid_image");
-            using (Bitmap rgb = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb))
+            Bitmap rgb = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+            try
             {
                 using (Graphics graphics = Graphics.FromImage(rgb))
                 {
@@ -116,50 +117,88 @@ public static class WindowsReceiptGraphics
                     graphics.DrawImageUnscaled(source, 0, 0);
                 }
                 inkRows = new bool[rgb.Height];
-                Bitmap mono = new Bitmap(rgb.Width, rgb.Height, PixelFormat.Format1bppIndexed);
-                ColorPalette palette = mono.Palette;
-                palette.Entries[0] = Color.White;
-                palette.Entries[1] = Color.Black;
-                mono.Palette = palette;
                 BitmapData input = null;
-                BitmapData output = null;
                 try
                 {
-                    Rectangle bounds = new Rectangle(0, 0, rgb.Width, rgb.Height);
-                    input = rgb.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                    output = mono.LockBits(bounds, ImageLockMode.WriteOnly, PixelFormat.Format1bppIndexed);
+                    input = rgb.LockBits(new Rectangle(0, 0, rgb.Width, rgb.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                     byte[] row = new byte[Math.Abs(input.Stride)];
-                    byte[] bits = new byte[Math.Abs(output.Stride)];
                     for (int y = 0; y < rgb.Height; y++)
                     {
                         Marshal.Copy(IntPtr.Add(input.Scan0, y * input.Stride), row, 0, row.Length);
-                        Array.Clear(bits, 0, bits.Length);
                         for (int x = 0; x < rgb.Width; x++)
                         {
                             int offset = x * 4;
                             if (299 * row[offset + 2] + 587 * row[offset + 1] + 114 * row[offset] < 160000)
                             {
-                                bits[x >> 3] |= (byte)(128 >> (x & 7));
                                 inkRows[y] = true;
+                                break;
                             }
                         }
-                        Marshal.Copy(bits, 0, IntPtr.Add(output.Scan0, y * output.Stride), bits.Length);
                     }
                 }
-                catch
-                {
-                    if (output != null) mono.UnlockBits(output);
-                    output = null;
-                    mono.Dispose();
-                    throw;
-                }
-                finally
-                {
-                    if (input != null) rgb.UnlockBits(input);
-                    if (output != null) mono.UnlockBits(output);
-                }
-                return mono;
+                finally { if (input != null) rgb.UnlockBits(input); }
+                return rgb;
             }
+            catch { rgb.Dispose(); throw; }
+        }
+    }
+
+    private static Bitmap RasterizePage(Bitmap source, int firstRow, int rows, int width, int height)
+    {
+        if (width < 1 || height < 1 || width > 2048 || height > 60000 || (long)width * height > MaximumPixels)
+            throw new ReceiptPrintFailure("invalid_image");
+        using (Bitmap scaled = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+        {
+            using (Graphics graphics = Graphics.FromImage(scaled))
+            using (ImageAttributes attributes = new ImageAttributes())
+            {
+                graphics.Clear(Color.White);
+                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                attributes.SetWrapMode(WrapMode.TileFlipXY);
+                graphics.DrawImage(source, new Rectangle(0, 0, width, height),
+                    0, firstRow, source.Width, rows, GraphicsUnit.Pixel, attributes);
+            }
+            Bitmap mono = new Bitmap(width, height, PixelFormat.Format1bppIndexed);
+            ColorPalette palette = mono.Palette;
+            palette.Entries[0] = Color.White;
+            palette.Entries[1] = Color.Black;
+            mono.Palette = palette;
+            BitmapData input = null;
+            BitmapData output = null;
+            try
+            {
+                Rectangle bounds = new Rectangle(0, 0, width, height);
+                input = scaled.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                output = mono.LockBits(bounds, ImageLockMode.WriteOnly, PixelFormat.Format1bppIndexed);
+                byte[] row = new byte[Math.Abs(input.Stride)];
+                byte[] bits = new byte[Math.Abs(output.Stride)];
+                for (int y = 0; y < height; y++)
+                {
+                    Marshal.Copy(IntPtr.Add(input.Scan0, y * input.Stride), row, 0, row.Length);
+                    Array.Clear(bits, 0, bits.Length);
+                    for (int x = 0; x < width; x++)
+                    {
+                        int offset = x * 4;
+                        if (299 * row[offset + 2] + 587 * row[offset + 1] + 114 * row[offset] < 160000)
+                            bits[x >> 3] |= (byte)(128 >> (x & 7));
+                    }
+                    Marshal.Copy(bits, 0, IntPtr.Add(output.Scan0, y * output.Stride), bits.Length);
+                }
+            }
+            catch
+            {
+                if (output != null) mono.UnlockBits(output);
+                output = null;
+                mono.Dispose();
+                throw;
+            }
+            finally
+            {
+                if (input != null) scaled.UnlockBits(input);
+                if (output != null) mono.UnlockBits(output);
+            }
+            return mono;
         }
     }
 
@@ -255,7 +294,7 @@ public static class WindowsReceiptGraphics
                 Directory.CreateDirectory(previewDirectory);
             }
             bool[] inkRows;
-            using (Bitmap image = LoadMonochrome(imagePath, out inkRows))
+            using (Bitmap image = LoadReceipt(imagePath, out inkRows))
             using (PrintDocument document = new PrintDocument())
             {
                 document.PrinterSettings.PrinterName = printer;
@@ -309,10 +348,21 @@ public static class WindowsReceiptGraphics
                     int pageRows = RowsForPage(image.Width, inkRows, rowOffset, (int)Math.Floor(available.Height * image.Width / drawWidth));
                     if (pageRows < 1) throw new ReceiptPrintFailure("invalid_paper_settings", attempted);
                     float drawHeight = pageRows * drawWidth / image.Width;
-                    args.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
-                    args.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
-                    args.Graphics.DrawImage(image, new RectangleF(layout.X, layout.Y, drawWidth, drawHeight),
-                        new RectangleF(0, rowOffset, image.Width, pageRows), GraphicsUnit.Pixel);
+                    // Keep antialiased strokes until the final raster size is known. Downsampling
+                    // a 1-bit image can discard an entire thin letter stem or punctuation mark.
+                    float dpiX = Math.Min(PreviewDpi, args.Graphics.DpiX);
+                    float dpiY = Math.Min(PreviewDpi, args.Graphics.DpiY);
+                    if (!Finite(dpiX) || !Finite(dpiY) || dpiX <= 0 || dpiY <= 0)
+                        throw new ReceiptPrintFailure("invalid_paper_settings", attempted);
+                    int rasterWidth = Math.Max(1, (int)Math.Floor(drawWidth * dpiX / 100));
+                    int rasterHeight = Math.Max(1, (int)Math.Floor(drawHeight * dpiY / 100));
+                    using (Bitmap pageImage = RasterizePage(image, rowOffset, pageRows, rasterWidth, rasterHeight))
+                    {
+                        args.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                        args.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                        args.Graphics.DrawImage(pageImage, new RectangleF(layout.X, layout.Y, drawWidth, drawHeight),
+                            new RectangleF(0, 0, pageImage.Width, pageImage.Height), GraphicsUnit.Pixel);
+                    }
                     rowOffset += pageRows;
                     pages++;
                     args.HasMorePages = rowOffset < image.Height;

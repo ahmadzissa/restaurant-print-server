@@ -14,7 +14,7 @@ function resolvePrintMode(printerName, modes = {}, platform = process.platform) 
     if (platform !== 'win32') return 'electron';
     const selected = modes?.[printerName];
     if (selected === 'electron' || selected === 'windows-graphics') return selected;
-    return /\bepson(?:\b|_)/i.test(printerName) ? 'electron' : 'windows-graphics';
+    return 'windows-graphics';
 }
 
 function validatePaperWidth(value) {

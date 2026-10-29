@@ -137,15 +137,14 @@ test('English and Arabic labels explain automatic routing and calibration withou
     assert.match(english, /Print method/);
     assert.match(english, /72 mm on 80 mm paper, 48 mm on 58 mm paper/);
     assert.match(english, /Windows graphics only/);
-    assert.match(english, /Standard for Epson-named printers/);
-    assert.match(english, /Windows graphics for all other printers/);
-    assert.match(english, /override the method for this printer only, including Epson/);
+    assert.match(english, /Windows graphics for all printers, including Epson/);
+    assert.match(english, /Select Standard \(Electron\) only if you need an alternative/);
     const arabic = app.render('Kitchen', 'ar');
     assert.match(arabic, /طريقة الطباعة/);
     assert.match(arabic, /لرسومات ويندوز فقط/);
     assert.match(arabic, /72 مم لورق 80 مم/);
-    assert.match(arabic, /الطباعة القياسية للطابعات التي يتضمن اسمها Epson/);
-    assert.match(arabic, /رسومات ويندوز لجميع الطابعات الأخرى/);
+    assert.match(arabic, /رسومات ويندوز لجميع الطابعات، بما فيها Epson/);
+    assert.match(arabic, /طريقة بديلة لهذه الطابعة/);
     assert.equal(selectedMode(arabic), 'windows-graphics');
     assert.equal(app.saved.length, 0);
 });
@@ -166,7 +165,7 @@ function testButton() {
     return { disabled: false, attributes, setAttribute: (name, value) => attributes.set(name, value), removeAttribute: name => attributes.delete(name) };
 }
 
-test('Epson Automatic stays standard while an explicit graphics override enables layout controls', () => {
+test('Epson Automatic enables layout controls and Standard disables them', () => {
     const app = fixture();
     const method = { value: 'auto', dataset: { printerName: 'EPSON TM-T20III' } };
     const paper = { value: '80' };
@@ -176,8 +175,8 @@ test('Epson Automatic stays standard while an explicit graphics override enables
     const card = { querySelector: selector => fields[selector] };
     method.closest = paper.closest = () => card;
     app.settings.updatePrinterLayoutControls(method);
-    assert.equal(width.disabled, true);
-    assert.equal(offset.disabled, true);
+    assert.equal(width.disabled, false);
+    assert.equal(offset.disabled, false);
     method.value = 'windows-graphics';
     app.settings.updatePrinterLayoutControls(method);
     assert.equal(width.disabled, false);

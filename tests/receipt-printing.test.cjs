@@ -42,7 +42,7 @@ function renderer({ height = 300, capture = png, failure, attached = false } = {
     };
 }
 
-test('Windows automatically uses graphics for every non-Epson queue', () => {
+test('Windows automatically uses graphics for every queue including Epson', () => {
     for (const name of [
         'Xprinter XP-80', 'xprinter xp80 (Copy 1)', 'Kitchen S200M', 'Xprinter XP-58', 'Xprinter XP-800',
         'Star TSP100', 'BIXOLON SRP-350', 'Brother QL-800', 'Zebra ZD220',
@@ -51,7 +51,8 @@ test('Windows automatically uses graphics for every non-Epson queue', () => {
         assert.equal(resolvePrintMode(name, {}, 'win32'), 'windows-graphics', name);
     }
     for (const name of ['EPSON TM-T20III', 'epson tm-t88v', 'Epson Receipt (Copy 1)', 'Kitchen EPSON TM-m30']) {
-        assert.equal(resolvePrintMode(name, {}, 'win32'), 'electron', name);
+        assert.equal(resolvePrintMode(name, {}, 'win32'), 'windows-graphics', name);
+        assert.equal(resolvePrintMode(name, { [name]: 'auto' }, 'win32'), 'windows-graphics', name);
     }
 });
 
@@ -69,10 +70,11 @@ test('explicit print methods remain independent for each exact queue', () => {
     assert.equal(resolvePrintMode('Xprinter XP-80', modes, 'win32'), 'electron');
     assert.equal(resolvePrintMode('Kitchen printer', modes, 'win32'), 'electron');
     assert.equal(resolvePrintMode('Kitchen printer (Copy 1)', modes, 'win32'), 'windows-graphics');
+    assert.equal(resolvePrintMode('EPSON TM-T20III', { 'EPSON TM-T20III': 'electron' }, 'win32'), 'electron');
     assert.equal(resolvePrintMode('EPSON TM-T20III', modes, 'win32'), 'windows-graphics');
-    assert.equal(resolvePrintMode('EPSON TM-T20III (Copy 1)', modes, 'win32'), 'electron');
+    assert.equal(resolvePrintMode('EPSON TM-T20III (Copy 1)', modes, 'win32'), 'windows-graphics');
     assert.equal(resolvePrintMode('Xprinter XP-80', { 'Xprinter XP-80': 'invalid' }, 'win32'), 'windows-graphics');
-    assert.equal(resolvePrintMode('EPSON TM-T20III', { 'EPSON TM-T20III': 'invalid' }, 'win32'), 'electron');
+    assert.equal(resolvePrintMode('EPSON TM-T20III', { 'EPSON TM-T20III': 'invalid' }, 'win32'), 'windows-graphics');
 });
 
 test('receipt widths are restricted to supported 58 and 80 mm forms', () => {

@@ -1,6 +1,6 @@
 {
   "name": "restaurant-print-server",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Local print server for thermal printers",
   "main": "main.js",
   "scripts": {

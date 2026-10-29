@@ -834,7 +834,7 @@
       printMethodAuto: 'تلقائية (موصى بها)',
       printMethodStandard: 'قياسية (Electron)',
       printMethodGraphics: 'توافق رسومات ويندوز',
-      printMethodHint: 'تستخدم الطريقة التلقائية الطباعة القياسية للطابعات التي يتضمن اسمها Epson، ورسومات ويندوز لجميع الطابعات الأخرى. يمكنك تغيير الطريقة لهذه الطابعة فقط، بما في ذلك Epson.',
+      printMethodHint: 'تستخدم الطريقة التلقائية رسومات ويندوز لجميع الطابعات، بما فيها Epson. اختر الطباعة القياسية (Electron) فقط إذا احتجت طريقة بديلة لهذه الطابعة.',
       printableWidth: 'عرض المحتوى (مم)',
       horizontalOffset: 'الإزاحة الأفقية (مم)',
       printLayoutHelp: 'لرسومات ويندوز فقط. اترك العرض فارغاً للوضع التلقائي: 72 مم لورق 80 مم، و48 مم لورق 58 مم. الإزاحة السالبة لليسار والموجبة لليمين.',
@@ -882,7 +882,7 @@
       printMethodAuto: 'Automatic (recommended)',
       printMethodStandard: 'Standard (Electron)',
       printMethodGraphics: 'Windows graphics compatibility',
-      printMethodHint: 'Automatic uses Standard for Epson-named printers and Windows graphics for all other printers. You can override the method for this printer only, including Epson.',
+      printMethodHint: 'Automatic uses Windows graphics for all printers, including Epson. Select Standard (Electron) only if you need an alternative for this printer.',
       printableWidth: 'Content width (mm)',
       horizontalOffset: 'Horizontal offset (mm)',
       printLayoutHelp: 'Windows graphics only. Leave width blank for automatic: 72 mm on 80 mm paper, 48 mm on 58 mm paper. Negative offset moves left; positive moves right.',
@@ -1181,7 +1181,7 @@
   }
 
   function isGraphicsPrintMethod(printerName, mode) {
-    return mode === 'windows-graphics' || (mode === 'auto' && !/\bepson(?:\b|_)/i.test(printerName));
+    return mode === 'windows-graphics' || mode === 'auto';
   }
 
   function getPrinterLayout(printerName, paperWidth) {

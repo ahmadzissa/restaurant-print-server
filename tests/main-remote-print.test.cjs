@@ -304,7 +304,9 @@ test('XP-80 receipts use Windows graphics once without Electron or TCP cutting',
 
 test('standard queues and explicit overrides preserve the exact Windows queue name', async t => {
     for (const [name, modes, expected] of [
-        ['EPSON TM-T20III', {}, 'electron'],
+        ['EPSON TM-T20III', {}, 'windows-graphics'],
+        ['EPSON TM-T20III', { 'EPSON TM-T20III': 'auto' }, 'windows-graphics'],
+        ['EPSON TM-T20III', { 'EPSON TM-T20III': 'electron' }, 'electron'],
         ['Kitchen Star TSP100', {}, 'windows-graphics'],
         ['BIXOLON SRP-350', {}, 'windows-graphics'],
         ['Kitchen receipt printer', {}, 'windows-graphics'],
@@ -364,7 +366,7 @@ test('graphics layout stays per printer and applies to an Epson override', async
 });
 
 test('invalid graphics layouts fail before submission and do not affect standard Epson printing', async t => {
-    const fixture = appFixture(t, { printerLayouts: {
+    const fixture = appFixture(t, { printerPrintModes: { 'EPSON TM-T20III': 'electron' }, printerLayouts: {
         'Xprinter XP-80': { printableWidthMm: 90 }, 'EPSON TM-T20III': { printableWidthMm: 90 },
     } });
     await assert.rejects(submitReceipt(fixture, 'Xprinter XP-80'), /Printable width/);

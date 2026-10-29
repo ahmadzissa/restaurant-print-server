@@ -294,3 +294,88 @@ test('custom printable width and signed offsets preserve the complete bitmap', (
     assert.equal(status, 0);
     assert.equal(result.horizontalOffsetMm, 0, 'an offset cannot move a full-width image outside the printable area');
 });
+test('final rasterization preserves thin strokes at every downsampling phase', t => {
+    const script = path.join(temporary, 'thin-strokes.ps1');
+    const csharp = readFileSync(backend, 'utf8').match(/-TypeDefinition @"\r?\n([\s\S]*?)\r?\n"@/)[1];
+    writeFileSync(script, `
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing
+Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @"
+${csharp}
+public static class ReceiptStrokeTest
+{
+    private static int MissingStrokes(Bitmap image, int sourceHeight)
+    {
+        int missing = 0;
+        for (int phase = 0; phase < 20; phase++)
+        {
+            int top = (int)Math.Ceiling((phase * 24 + 4) * image.Height / (double)sourceHeight);
+            int bottom = (int)Math.Floor((phase * 24 + 20) * image.Height / (double)sourceHeight);
+            int visibleRows = 0;
+            for (int y = top; y < bottom; y++)
+            {
+                bool ink = false;
+                for (int x = 0; x < image.Width; x++)
+                    if (image.GetPixel(x, y).R < 100) { ink = true; break; }
+                if (ink) visibleRows++;
+            }
+            if (visibleRows < bottom - top - 1) missing++;
+        }
+        return missing;
+    }
+    public static string Run()
+    {
+        var rasterize = typeof(WindowsReceiptGraphics).GetMethod("RasterizePage",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        int oldMissing = 0;
+        int newMissing = 0;
+        int cases = 0;
+        using (Bitmap source = new Bitmap(640, 480))
+        {
+            using (Graphics graphics = Graphics.FromImage(source))
+            {
+                graphics.Clear(Color.White);
+                for (int phase = 0; phase < 20; phase++)
+                    graphics.FillRectangle(Brushes.Black, 40 + phase, phase * 24 + 2, 1, 20);
+            }
+            foreach (int width in new int[] { 576, 544, 510 })
+            {
+                int height = (int)Math.Floor(source.Height * width / (double)source.Width);
+                using (Bitmap old = new Bitmap(width, height))
+                {
+                    using (Graphics graphics = Graphics.FromImage(old))
+                    {
+                        graphics.Clear(Color.White);
+                        graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                        graphics.PixelOffsetMode = PixelOffsetMode.Half;
+                        graphics.DrawImage(source, new Rectangle(0, 0, width, height),
+                            new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
+                    }
+                    oldMissing += MissingStrokes(old, source.Height);
+                }
+                using (Bitmap actual = (Bitmap)rasterize.Invoke(null,
+                    new object[] { source, 0, source.Height, width, height }))
+                {
+                    if (actual.PixelFormat != PixelFormat.Format1bppIndexed)
+                        throw new Exception("Printer raster must remain monochrome");
+                    newMissing += MissingStrokes(actual, source.Height);
+                    if (actual.GetPixel(width - 1, height / 2).R != 255)
+                        throw new Exception("Blank areas must remain white");
+                }
+                cases++;
+            }
+        }
+        return "{\\"oldMissing\\":" + oldMissing + ",\\"newMissing\\":" + newMissing + ",\\"cases\\":" + cases + "}";
+    }
+}
+"@
+[ReceiptStrokeTest]::Run()
+`, 'utf8');
+    const result = JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script], {
+        encoding: 'utf8', windowsHide: true, env: childEnvironment, timeout: 30000,
+    }));
+    t.diagnostic(`Thin stems lost: old=${result.oldMissing}, updated=${result.newMissing}, scaling cases=${result.cases}`);
+    assert.equal(result.cases, 3);
+    assert.ok(result.oldMissing > 0, 'the original nearest-neighbor path must reproduce erased thin stems');
+    assert.equal(result.newMissing, 0, 'all thin stems must survive resizing before monochrome conversion');
+});
