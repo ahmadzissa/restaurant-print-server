@@ -7,10 +7,11 @@ const os = require('node:os');
 
 async function renderFixtures() {
     const { app, BrowserWindow, nativeImage, session } = require('electron');
-    const { renderReceiptImage, MAX_HEIGHT } = require('../receipt-printing');
+    const { renderReceiptImage, resolvePrintMode, resolvePrintLayout, validatePaperWidth, MAX_HEIGHT } = require('../receipt-printing');
     const outputDirectory = process.argv[2];
     const profileDirectory = process.argv[3];
     const dashboardPrinterScript = process.argv[4];
+    const autoPrintScript = process.argv[5];
     app.setPath('userData', profileDirectory);
     await app.whenReady();
     console.log(`Synthetic renderer: Electron ${process.versions.electron}`);
@@ -94,6 +95,94 @@ async function renderFixtures() {
                 await fs.writeFile(path.join(outputDirectory, filename), png);
                 console.log(`${filename}: ${pixelWidth}x${pixelHeight}, actual dashboard test HTML`);
             }
+            const autoPrintScope = { module: { exports: {} }, window: {}, userTimezone: 'Asia/Riyadh', console: { log() {} } };
+            const autoPrintSource = await fs.readFile(autoPrintScript || path.join(path.dirname(dashboardPrinterScript), 'AutoPrint.js'), 'utf8');
+            vm.runInNewContext(`${autoPrintSource}\nmodule.exports = AutoPrint;`, autoPrintScope, { timeout: 1000 });
+            const autoPrint = Object.create(autoPrintScope.module.exports.prototype);
+            for (const width of [58, 80]) {
+                for (const language of ['ar', 'en']) {
+                    autoPrint.config = {
+                        locale: language, fixedNumber: 2, realCurrency: language === 'ar' ? 'د.ك' : 'KWD',
+                        companyName: language === 'ar' ? 'مطعم تجريبي' : 'Synthetic Restaurant', branchAddress: {}, branchData: {}, translations: {},
+                    };
+                    const html = autoPrint.generateReceipt({
+                        id: 12345, table_num: 7, created_at: '2026-10-29T12:00:00Z', total_price: 135.50,
+                        orderDetails: [
+                            { dish_name: language === 'ar' ? 'وجبة دجاج مع الأرز' : 'Chicken and rice', quantity: 2, price: 12.50, total_price: 25, options: [{ selected: [{ name: language === 'ar' ? 'إضافة سلطة خضراء' : 'Extra green salad', price: 2.50 }] }] },
+                            { dish_name: language === 'ar' ? 'وجبة عائلية مشويات مشكلة' : 'Mixed grill family meal', quantity: 1, price: 110.50, total_price: 110.50 },
+                        ],
+                    }, width).replace('</body>', '<div id="edge-left" style="position:absolute;left:0;top:0;width:4px;height:14px;background:#00ff00"></div><div id="edge-right" style="position:absolute;right:0;top:0;width:4px;height:14px;background:#ff0000"></div></body>').replace('</style>', 'body { position:relative; }</style>');
+                    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+                    const png = await renderReceiptImage(window, width);
+                    const geometry = await window.webContents.executeJavaScript(`({
+                        body: document.body.getBoundingClientRect().toJSON(),
+                        html: document.documentElement.getBoundingClientRect().toJSON(),
+                        table: document.querySelector('table').getBoundingClientRect().toJSON(),
+                        scrollWidth: document.body.scrollWidth,
+                    })`);
+                    const pixels = nativeImage.createFromBuffer(png).toBitmap();
+                    let left = 0;
+                    let right = 0;
+                    for (let offset = 0; offset < pixels.length; offset += 4) {
+                        if (pixels[offset] < 20 && pixels[offset + 1] > 240 && pixels[offset + 2] < 20) left++;
+                        if (pixels[offset] < 20 && pixels[offset + 1] < 20 && pixels[offset + 2] > 240) right++;
+                    }
+                    const filename = `dashboard-auto-${width}mm-${language}.png`;
+                    await fs.writeFile(path.join(outputDirectory, filename), png);
+                    assert.ok(Math.abs(geometry.body.left) < 1, 'actual AutoPrint receipt must start at the capture origin');
+                    assert.ok(geometry.table.left >= geometry.body.left && geometry.table.right <= geometry.body.right + 1, 'actual AutoPrint table must remain inside the paper width');
+                    assert.ok(left >= 50 && right >= 50, 'both paper edges must remain visible in actual AutoPrint receipt');
+                    console.log(`${filename}: both edge markers visible; table within paper width`);
+                }
+            }
+        }
+        const vm = require('node:vm');
+        const mainSource = await fs.readFile(path.join(__dirname, '..', 'main.js'), 'utf8');
+        const handlerStart = mainSource.indexOf("ipcMain.handle('test-print',");
+        const handlerEnd = mainSource.indexOf("ipcMain.handle('get-server-status',", handlerStart);
+        assert.ok(handlerStart >= 0 && handlerEnd > handlerStart, 'actual IPC test-print handler must be present');
+        const printerName = 'EPSON Synthetic Receipt';
+        for (const [paperWidth, printableWidthMm, horizontalOffsetMm] of [[58, 46, -1], [80, 68, 1]]) {
+            let handler;
+            let receiptHtml;
+            const config = {
+                printerPaperWidths: { [printerName]: paperWidth },
+                printerPrintModes: { [printerName]: 'windows-graphics' },
+                printerLayouts: { [printerName]: { printableWidthMm, horizontalOffsetMm } },
+            };
+            vm.runInNewContext(mainSource.slice(handlerStart, handlerEnd), {
+                ipcMain: { handle(name, callback) { assert.equal(name, 'test-print'); handler = callback; } },
+                config, validatePaperWidth, resolvePrintMode, resolvePrintLayout,
+                printJob: async (name, html, _, width) => {
+                    assert.equal(name, printerName);
+                    assert.equal(width, paperWidth);
+                    receiptHtml = html;
+                    return { message: 'Synthetic capture only' };
+                },
+            }, { timeout: 1000 });
+            const result = await handler({}, printerName, paperWidth);
+            assert.equal(result.success, true, result.message);
+            assert.ok(receiptHtml.includes('Windows graphics'), 'Epson explicit graphics override must label the actual IPC receipt');
+            await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(receiptHtml)}`);
+            const png = await renderReceiptImage(window, paperWidth);
+            const geometry = await window.webContents.executeJavaScript(`({
+                body: document.body.getBoundingClientRect().toJSON(),
+                edge: document.querySelector('.edge-check').getBoundingClientRect().toJSON(),
+                labels: Array.from(document.querySelectorAll('.edge-check span'), element => ({ text: element.textContent, rect: element.getBoundingClientRect().toJSON() })),
+                arabic: document.querySelector('.arabic').getBoundingClientRect().toJSON(),
+                text: document.body.textContent,
+            })`);
+            assert.deepEqual(geometry.labels.map(label => label.text), ['LEFT', 'RIGHT']);
+            assert.ok(geometry.text.includes(`Printable width: ${printableWidthMm}mm`));
+            assert.ok(geometry.text.includes(`Horizontal adjustment: ${horizontalOffsetMm}mm`));
+            assert.match(geometry.text, /اختبار عربي/);
+            for (const rectangle of [geometry.edge, geometry.arabic, ...geometry.labels.map(label => label.rect)]) {
+                assert.ok(rectangle.left >= geometry.body.left && rectangle.right <= geometry.body.right + 1, 'IPC calibration labels and Arabic line must fit within paper width');
+                assert.ok(rectangle.bottom * 203 / 96 <= png.readUInt32BE(20) + 2, 'IPC calibration receipt must contain the complete test content');
+            }
+            const filename = `app-calibration-${paperWidth}mm.png`;
+            await fs.writeFile(path.join(outputDirectory, filename), png);
+            console.log(`${filename}: actual IPC HTML; Epson graphics override, custom width/offset and edge box verified`);
         }
         await window.loadURL(`data:text/html,${encodeURIComponent(`<html><body><div style="height:${MAX_HEIGHT + 1}px">Synthetic oversize receipt</div></body></html>`)}`);
         await assert.rejects(renderReceiptImage(window, 80), /height is outside/);
@@ -110,12 +199,13 @@ async function launchRenderer() {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'yala-receipt-render-test-'));
     const outputDirectory = process.argv[2] ? path.resolve(process.argv[2]) : path.join(directory, 'images');
     const dashboardPrinterScript = process.argv[3] ? path.resolve(process.argv[3]) : null;
+    const autoPrintScript = process.argv[4] ? path.resolve(process.argv[4]) : null;
     const profileDirectory = path.join(directory, 'profile');
     const environment = { ...process.env };
     delete environment.ELECTRON_RUN_AS_NODE;
     try {
         await new Promise((resolve, reject) => {
-            const child = spawn(require('electron'), [__filename, outputDirectory, profileDirectory, ...(dashboardPrinterScript ? [dashboardPrinterScript] : [])], {
+            const child = spawn(require('electron'), [__filename, outputDirectory, profileDirectory, ...(dashboardPrinterScript ? [dashboardPrinterScript] : []), ...(autoPrintScript ? [autoPrintScript] : [])], {
                 windowsHide: true,
                 stdio: ['ignore', 'pipe', 'pipe'],
                 env: environment,

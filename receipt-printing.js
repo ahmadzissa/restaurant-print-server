@@ -23,6 +23,22 @@ function validatePaperWidth(value) {
     return width;
 }
 
+function resolvePrintLayout(paperWidth, layout = {}) {
+    const width = validatePaperWidth(paperWidth);
+    if (layout == null) layout = {};
+    if (typeof layout !== 'object' || Array.isArray(layout)) throw new Error('Invalid printer layout settings.');
+    const configuredWidth = layout.printableWidthMm;
+    const printableWidthMm = configuredWidth == null || configuredWidth === 0 ? (width === 80 ? 72 : 48) : configuredWidth;
+    const horizontalOffsetMm = layout.horizontalOffsetMm ?? 0;
+    if (!Number.isFinite(printableWidthMm) || printableWidthMm < 20 || printableWidthMm > width) {
+        throw new Error(`Printable width must be between 20 and ${width} mm.`);
+    }
+    if (!Number.isFinite(horizontalOffsetMm) || horizontalOffsetMm < -10 || horizontalOffsetMm > 10) {
+        throw new Error('Horizontal adjustment must be between -10 and 10 mm.');
+    }
+    return { printableWidthMm, horizontalOffsetMm };
+}
+
 async function renderReceiptImage(printWindow, paperWidth) {
     const width = validatePaperWidth(paperWidth);
     const contents = printWindow.webContents;
@@ -82,6 +98,7 @@ async function renderReceiptImage(printWindow, paperWidth) {
 
 async function printWindowsReceipt(printWindow, options, dependencies = {}) {
     const width = validatePaperWidth(options.paperWidth);
+    const layout = resolvePrintLayout(width, options);
     if (typeof options.printerName !== 'string' || !options.printerName.trim() || options.printerName.length > 256 || /[\x00-\x1f]/.test(options.printerName)) {
         throw new Error('An installed Windows printer name is required.');
     }
@@ -99,6 +116,7 @@ async function printWindowsReceipt(printWindow, options, dependencies = {}) {
             paperWidth: width,
             jobName: 'YalaMenu receipt',
             imagePath,
+            ...layout,
         }), 'utf8');
         const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
         const result = await execute(powershell, [
@@ -115,4 +133,4 @@ async function printWindowsReceipt(printWindow, options, dependencies = {}) {
     }
 }
 
-module.exports = { resolvePrintMode, validatePaperWidth, renderReceiptImage, printWindowsReceipt, MAX_HEIGHT };
+module.exports = { resolvePrintMode, validatePaperWidth, resolvePrintLayout, renderReceiptImage, printWindowsReceipt, MAX_HEIGHT };

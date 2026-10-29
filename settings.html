@@ -481,6 +481,29 @@
       line-height: 1.5;
     }
 
+    .print-layout-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .print-layout-fields label {
+      display: grid;
+      gap: 6px;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .print-layout-fields input {
+      width: 100%;
+    }
+
+    .print-layout-fields input:disabled {
+      background: #f3f4f6;
+      color: #777;
+      cursor: not-allowed;
+    }
+
     input, select {
       padding: 10px;
       border: 2px solid #ddd;
@@ -809,9 +832,14 @@
       testPrint: 'طباعة تجريبية',
       printMethod: 'طريقة الطباعة',
       printMethodAuto: 'تلقائية (موصى بها)',
-      printMethodStandard: 'قياسية',
+      printMethodStandard: 'قياسية (Electron)',
       printMethodGraphics: 'توافق رسومات ويندوز',
-      printMethodHint: 'تستخدم الطريقة التلقائية الطباعة القياسية للطابعات التي يتضمن اسمها Epson، ورسومات ويندوز لجميع الطابعات الأخرى. إذا كان الإخراج غير مقروء، يمكنك تغيير الطريقة لهذه الطابعة فقط. احفظ قبل التجربة.',
+      printMethodHint: 'تستخدم الطريقة التلقائية الطباعة القياسية للطابعات التي يتضمن اسمها Epson، ورسومات ويندوز لجميع الطابعات الأخرى. يمكنك تغيير الطريقة لهذه الطابعة فقط، بما في ذلك Epson.',
+      printableWidth: 'عرض المحتوى (مم)',
+      horizontalOffset: 'الإزاحة الأفقية (مم)',
+      printLayoutHelp: 'لرسومات ويندوز فقط. اترك العرض فارغاً للوضع التلقائي: 72 مم لورق 80 مم، و48 مم لورق 58 مم. الإزاحة السالبة لليسار والموجبة لليمين.',
+      printLayoutInvalid: 'أدخل عرض محتوى من 20 مم حتى عرض الورق، أو اتركه فارغاً. يجب أن تكون الإزاحة بين -10 و10 مم.',
+      saveAndTest: 'حفظ وتجربة',
       save: 'حفظ',
       running: 'يعمل',
       stopped: 'متوقف'
@@ -852,9 +880,14 @@
       testPrint: 'Test Print',
       printMethod: 'Print method',
       printMethodAuto: 'Automatic (recommended)',
-      printMethodStandard: 'Standard',
+      printMethodStandard: 'Standard (Electron)',
       printMethodGraphics: 'Windows graphics compatibility',
-      printMethodHint: 'Automatic uses Standard for Epson-named printers and Windows graphics for all other printers. If output is unreadable, override the method for this printer only. Save before testing.',
+      printMethodHint: 'Automatic uses Standard for Epson-named printers and Windows graphics for all other printers. You can override the method for this printer only, including Epson.',
+      printableWidth: 'Content width (mm)',
+      horizontalOffset: 'Horizontal offset (mm)',
+      printLayoutHelp: 'Windows graphics only. Leave width blank for automatic: 72 mm on 80 mm paper, 48 mm on 58 mm paper. Negative offset moves left; positive moves right.',
+      printLayoutInvalid: 'Enter a content width from 20 mm up to the paper width, or leave it blank. Offset must be between -10 and 10 mm.',
+      saveAndTest: 'Save & test',
       save: 'Save',
       running: 'Running',
       stopped: 'Stopped'
@@ -864,6 +897,7 @@
   let currentLang = 'en';
   let isAuthenticated = false;
   let printerConfig = {};
+  const printerSettingsTests = new Set();
 
   // Language switcher
   function switchLanguage(lang) {
@@ -1146,6 +1180,35 @@
     return ['auto', 'electron', 'windows-graphics'].includes(mode) ? mode : 'auto';
   }
 
+  function isGraphicsPrintMethod(printerName, mode) {
+    return mode === 'windows-graphics' || (mode === 'auto' && !/\bepson(?:\b|_)/i.test(printerName));
+  }
+
+  function getPrinterLayout(printerName, paperWidth) {
+    const layout = printerConfig.printerLayouts?.[printerName] || {};
+    const width = Number(layout.printableWidthMm);
+    const offset = Number(layout.horizontalOffsetMm);
+    return {
+      printableWidthMm: Number.isFinite(width) && width >= 20 && width <= paperWidth ? width : 0,
+      horizontalOffsetMm: Number.isFinite(offset) && offset >= -10 && offset <= 10 ? offset : 0
+    };
+  }
+
+  function updatePrinterLayoutControls(control) {
+    const card = control.closest('.printer-card');
+    if (!card) return;
+    const method = card.querySelector('[data-print-method]');
+    const paper = card.querySelector('[data-paper-width]');
+    const width = card.querySelector('[data-layout-width]');
+    const offset = card.querySelector('[data-layout-offset]');
+    const paperWidth = Number(paper.value) === 58 ? 58 : 80;
+    const enabled = isGraphicsPrintMethod(method.dataset.printerName, method.value);
+    width.disabled = offset.disabled = !enabled;
+    width.max = String(paperWidth);
+    width.placeholder = String(paperWidth === 58 ? 48 : 72);
+    if (control === paper && Number(width.value) > paperWidth) width.value = '';
+  }
+
   function renderPrinters(printers) {
     const container = document.getElementById('printers-list');
 
@@ -1163,6 +1226,12 @@
       const printMode = getPrinterPrintMode(printer.name);
       const modeId = escapePrinterSettingHtml(`mode-${printer.name}`);
       const modeHintId = escapePrinterSettingHtml(`mode-hint-${printer.name}`);
+      const layout = getPrinterLayout(printer.name, Number(paperWidth));
+      const layoutDisabled = isGraphicsPrintMethod(printer.name, printMode) ? '' : 'disabled';
+      const layoutWidthId = escapePrinterSettingHtml(`layout-width-${printer.name}`);
+      const layoutOffsetId = escapePrinterSettingHtml(`layout-offset-${printer.name}`);
+      const layoutHelpId = escapePrinterSettingHtml(`layout-help-${printer.name}`);
+      const escapedPrinterName = escapePrinterSettingHtml(printer.name);
       const statusClass = printer.status === 0 ? 'status-ready' : 'status-error';
       const statusText = printer.status === 0 ? '✅ Ready' : '⚠️ Error';
       const isFavorite = favorites.includes(printer.name);
@@ -1183,12 +1252,25 @@
 
                         <div class="print-method-control">
                             <label for="${modeId}" data-i18n="printMethod">${translations[currentLang].printMethod}</label>
-                            <select id="${modeId}" aria-describedby="${modeHintId}">
+                            <select id="${modeId}" aria-describedby="${modeHintId}" data-print-method data-printer-name="${escapedPrinterName}" onchange="updatePrinterLayoutControls(this)">
                                 <option value="auto" ${printMode === 'auto' ? 'selected' : ''} data-i18n="printMethodAuto">${translations[currentLang].printMethodAuto}</option>
                                 <option value="electron" ${printMode === 'electron' ? 'selected' : ''} data-i18n="printMethodStandard">${translations[currentLang].printMethodStandard}</option>
                                 <option value="windows-graphics" ${printMode === 'windows-graphics' ? 'selected' : ''} data-i18n="printMethodGraphics">${translations[currentLang].printMethodGraphics}</option>
                             </select>
                             <p id="${modeHintId}" data-i18n="printMethodHint">${translations[currentLang].printMethodHint}</p>
+                            <div class="print-layout-fields">
+                                <label for="${layoutWidthId}">
+                                    <span data-i18n="printableWidth">${translations[currentLang].printableWidth}</span>
+                                    <input id="${layoutWidthId}" data-layout-width type="number" dir="ltr" min="20" max="${Number(paperWidth)}" step="0.1"
+                                           value="${layout.printableWidthMm || ''}" placeholder="${Number(paperWidth) === 58 ? 48 : 72}" aria-describedby="${layoutHelpId}" ${layoutDisabled}>
+                                </label>
+                                <label for="${layoutOffsetId}">
+                                    <span data-i18n="horizontalOffset">${translations[currentLang].horizontalOffset}</span>
+                                    <input id="${layoutOffsetId}" data-layout-offset type="number" dir="ltr" min="-10" max="10" step="0.1"
+                                           value="${layout.horizontalOffsetMm}" aria-describedby="${layoutHelpId}" ${layoutDisabled}>
+                                </label>
+                            </div>
+                            <p id="${layoutHelpId}" data-i18n="printLayoutHelp">${translations[currentLang].printLayoutHelp}</p>
                         </div>
 
                         <div class="printer-controls">
@@ -1198,7 +1280,7 @@
                                    id="alias-${printer.name}"
                                    style="flex: 1; min-width: 150px;" />
 
-                            <select id="width-${printer.name}" style="width: 120px;">
+                            <select id="width-${printer.name}" data-paper-width onchange="updatePrinterLayoutControls(this)" style="width: 120px;">
                                 <option value="58" ${paperWidth == 58 ? 'selected' : ''}>58mm</option>
                                 <option value="80" ${paperWidth == 80 ? 'selected' : ''}>80mm</option>
                             </select>
@@ -1213,8 +1295,8 @@
                                 💾 <span data-i18n="save">${translations[currentLang].save}</span>
                             </button>
 
-                            <button class="btn-success" onclick='testPrint("${printer.name}")'>
-                                🖨️ <span data-i18n="testPrint">${translations[currentLang].testPrint}</span>
+                            <button class="btn-success" data-printer-name="${escapedPrinterName}" onclick="saveAndTestPrinter(this.dataset.printerName, this)">
+                                🖨️ <span data-i18n="saveAndTest">${translations[currentLang].saveAndTest}</span>
                             </button>
                         </div>
                     </div>
@@ -1255,43 +1337,73 @@
     }
   }
 
-  async function savePrinterSettings(printerName) {
+  async function savePrinterSettings(printerName, quiet = false) {
     if (!isAuthenticated) {
       loginToApp();
-      return;
+      return false;
     }
 
     try {
       const alias = document.getElementById(`alias-${printerName}`).value;
-      const width = parseInt(document.getElementById(`width-${printerName}`).value);
+      const width = Number(document.getElementById(`width-${printerName}`).value);
       const ip = document.getElementById(`ip-${printerName}`).value;
       const requestedMode = document.getElementById(`mode-${printerName}`).value;
       const printMode = ['auto', 'electron', 'windows-graphics'].includes(requestedMode) ? requestedMode : 'auto';
+      const printableWidthMm = Number(document.getElementById(`layout-width-${printerName}`).value.trim());
+      const horizontalOffsetMm = Number(document.getElementById(`layout-offset-${printerName}`).value.trim());
+      if (![58, 80].includes(width) || !Number.isFinite(printableWidthMm)
+          || (printableWidthMm !== 0 && (printableWidthMm < 20 || printableWidthMm > width))
+          || !Number.isFinite(horizontalOffsetMm) || horizontalOffsetMm < -10 || horizontalOffsetMm > 10) {
+        alert(translations[currentLang].printLayoutInvalid);
+        return false;
+      }
 
       const updatedConfig = {
         ...printerConfig,
         printerAliases: { ...printerConfig.printerAliases, [printerName]: alias },
         printerPaperWidths: { ...printerConfig.printerPaperWidths, [printerName]: width },
         printerIPs: { ...printerConfig.printerIPs, [printerName]: ip },
-        printerPrintModes: { ...printerConfig.printerPrintModes, [printerName]: printMode }
+        printerPrintModes: { ...printerConfig.printerPrintModes, [printerName]: printMode },
+        printerLayouts: { ...printerConfig.printerLayouts, [printerName]: { printableWidthMm, horizontalOffsetMm } }
       };
 
       const result = await window.printerAPI.saveConfig(updatedConfig);
       if (result.success) {
         printerConfig = updatedConfig;
-        alert('Settings saved successfully');
-      } else {
-        alert('Failed to save settings');
+        if (!quiet) alert('Settings saved successfully');
+        return true;
       }
+      alert('Failed to save settings');
     } catch (error) {
       alert('Error saving settings: ' + error.message);
+    }
+    return false;
+  }
+
+  async function saveAndTestPrinter(printerName, button) {
+    if (printerSettingsTests.has(printerName)) return false;
+    printerSettingsTests.add(printerName);
+    const wasDisabled = button?.disabled;
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+    }
+    try {
+      if (!await savePrinterSettings(printerName, true)) return false;
+      return await testPrint(printerName);
+    } finally {
+      printerSettingsTests.delete(printerName);
+      if (button) {
+        button.disabled = wasDisabled;
+        button.removeAttribute('aria-busy');
+      }
     }
   }
 
   async function testPrint(printerName) {
     if (!isAuthenticated) {
       loginToApp();
-      return;
+      return false;
     }
 
     try {
@@ -1300,12 +1412,13 @@
 
       if (result.success) {
         alert(`Test print sent to ${printerName}`);
-      } else {
-        alert('Test print failed: ' + result.message);
+        return true;
       }
+      alert('Test print failed: ' + result.message);
     } catch (error) {
       alert('Test print error: ' + error.message);
     }
+    return false;
   }
 
   async function loadPrintQueue() {

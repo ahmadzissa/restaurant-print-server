@@ -9,7 +9,7 @@ const net = require("net");
 const fs = require("fs");
 const AutoLaunch = require("auto-launch");
 const { RemotePrintJournal, submitRemotePrint, DASHBOARD_ORIGIN, dashboardPageState, isAllowedNavigation } = require("./remote-print");
-const { resolvePrintMode, validatePaperWidth, printWindowsReceipt } = require('./receipt-printing');
+const { resolvePrintMode, validatePaperWidth, resolvePrintLayout, printWindowsReceipt } = require('./receipt-printing');
 let serverRunning = false;
 
 // Set Windows taskbar icon - MUST match package.json appId
@@ -263,6 +263,7 @@ function loadConfig() {
         printerAliases: {},
         printerPaperWidths: {},
         printerPrintModes: {},
+        printerLayouts: {},
         favoritePrinters: [],
         printerIPs: {}
     };
@@ -570,6 +571,7 @@ async function printJob(printerName, htmlContent, url, paperWidth = 80) {
     }
     const jobId = Date.now();
     const printMode = resolvePrintMode(printerName, config.printerPrintModes);
+    const printLayout = printMode === 'windows-graphics' ? resolvePrintLayout(paperWidth, config.printerLayouts?.[printerName]) : null;
 
     // ✅ LOG TO BROWSER: Print Job Started
     if (settingsWindow && !settingsWindow.isDestroyed()) {
@@ -641,7 +643,7 @@ async function printJob(printerName, htmlContent, url, paperWidth = 80) {
                         const scriptPath = app.isPackaged
                             ? path.join(process.resourcesPath, 'windows-receipt-print.ps1')
                             : path.join(__dirname, 'windows-receipt-print.ps1');
-                        printWindowsReceipt(printWindow, { printerName, paperWidth, scriptPath })
+                        printWindowsReceipt(printWindow, { printerName, paperWidth, scriptPath, ...printLayout })
                             .then(() => callback(true), error => callback(false, error.message));
                     }
                     : printWindow.webContents.print.bind(printWindow.webContents);
@@ -1160,7 +1162,13 @@ function registerIPCHandlers() {
     });
 
     ipcMain.handle('test-print', async (event, printerName, paperWidth = 80) => {
-        const html = `<!DOCTYPE html>
+        try {
+            const savedWidth = validatePaperWidth(config.printerPaperWidths?.[printerName] || paperWidth);
+            const printMode = resolvePrintMode(printerName, config.printerPrintModes);
+            const layout = printMode === 'windows-graphics' ? resolvePrintLayout(savedWidth, config.printerLayouts?.[printerName]) : null;
+            const printerLabel = String(printerName).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+            const methodLabel = printMode === 'windows-graphics' ? 'Windows graphics' : 'Standard (Electron)';
+            const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -1173,10 +1181,10 @@ function registerIPCHandlers() {
       box-sizing: border-box;
     }
     body {
-      width: ${paperWidth - 2}mm;
+      width: ${savedWidth - 2}mm;
       font-family: 'Courier New', monospace;
       font-size: 11pt;
-      padding: 3mm 1mm 3mm 5mm;
+      padding: 3mm 2mm;
       margin: 0;
       background: white;
     }
@@ -1200,22 +1208,33 @@ function registerIPCHandlers() {
       text-align: center;
       font-weight: bold;
     }
+    .edge-check {
+      border: 1px solid #000;
+      padding: 2mm 1mm;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9pt;
+    }
+    .arabic { direction: rtl; text-align: right; }
+    p { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
   <h1>TEST PRINT</h1>
   <p class="center">YallaMenu Print Manager</p>
   <div class="line"></div>
-  <p><strong>Printer:</strong> ${printerName}</p>
-  <p><strong>Paper Width:</strong> ${paperWidth}mm</p>
+  <p><strong>Printer:</strong> ${printerLabel}</p>
+  <p><strong>Method:</strong> ${methodLabel}</p>
+  <p><strong>Paper Width:</strong> ${savedWidth}mm</p>
+  ${layout ? `<p><strong>Printable width:</strong> ${layout.printableWidthMm}mm</p><p><strong>Horizontal adjustment:</strong> ${layout.horizontalOffsetMm}mm</p>` : ''}
   <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
   <div class="line"></div>
+  <div class="edge-check"><span>LEFT</span><span>RIGHT</span></div>
+  <p class="arabic" lang="ar">اختبار عربي — يجب ظهور السطر كاملاً</p>
   <p class="center">✓ PRINT OK ✓</p>
 </body>
 </html>`;
 
-        try {
-            const savedWidth = config.printerPaperWidths?.[printerName] || paperWidth;
             const r = await printJob(printerName, html, null, savedWidth);
             return { success: true, message: r.message };
         } catch (error) {
@@ -1258,8 +1277,9 @@ function registerIPCHandlers() {
     });
 
     ipcMain.handle("save-config", async (event, newConfig) => {
-        config = { ...config, ...newConfig };
-        const saved = saveConfig(config);
+        const updatedConfig = { ...config, ...newConfig };
+        const saved = saveConfig(updatedConfig);
+        if (saved) config = updatedConfig;
         return { success: saved };
     });
 

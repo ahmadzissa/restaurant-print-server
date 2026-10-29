@@ -28,6 +28,22 @@ try {
     if ($manifest.imagePath -isnot [string] -or -not (Test-AbsolutePath $manifest.imagePath)) { throw 'invalid_manifest' }
     if ($PreviewDirectory -and -not (Test-AbsolutePath $PreviewDirectory)) { throw 'invalid_preview_directory' }
 
+    $printableWidthMm = if ($manifest.paperWidth -eq 80) { 72.0 } else { 48.0 }
+    $horizontalOffsetMm = 0.0
+    foreach ($optional in @('printableWidthMm', 'horizontalOffsetMm')) {
+        if ($fields -contains $optional) {
+            $value = $manifest.$optional
+            if (-not ($value -is [int] -or $value -is [long] -or $value -is [double] -or $value -is [decimal]) -or
+                [double]::IsNaN([double] $value) -or [double]::IsInfinity([double] $value)) { throw 'invalid_manifest' }
+            if ($optional -eq 'printableWidthMm') {
+                if ($value -lt 20 -or $value -gt $manifest.paperWidth) { throw 'invalid_manifest' }
+                $printableWidthMm = [double] $value
+            } else {
+                if ($value -lt -10 -or $value -gt 10) { throw 'invalid_manifest' }
+                $horizontalOffsetMm = [double] $value
+            }
+        }
+    }
     $errorCode = 'graphics_backend_unavailable'
     Add-Type -AssemblyName System.Drawing
     Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @"
@@ -58,6 +74,7 @@ public sealed class ReceiptPrintResult
     public bool Preview { get; set; }
     public int Pages { get; set; }
     public double PrintableWidthMm { get; set; }
+    public double HorizontalOffsetMm { get; set; }
 }
 
 public static class WindowsReceiptGraphics
@@ -188,18 +205,41 @@ public static class WindowsReceiptGraphics
         return new PaperSize("Receipt", width, desiredHeight);
     }
 
-    private static SizeF PrintableSize(PageSettings settings)
+    private static bool Finite(float value)
     {
-        RectangleF area = settings.PrintableArea;
-        float width = Math.Min(area.Width, settings.PaperSize.Width);
-        float height = Math.Min(area.Height, settings.PaperSize.Height);
-        if (Single.IsNaN(width) || Single.IsInfinity(width) || Single.IsNaN(height) || Single.IsInfinity(height) ||
-            width < 78 || height < 78 || width > 2000 || height > 2362)
-            throw new ReceiptPrintFailure("invalid_paper_settings");
-        return new SizeF(width, height);
+        return !Single.IsNaN(value) && !Single.IsInfinity(value);
     }
 
-    public static ReceiptPrintResult Execute(string printerName, int paperWidth, string jobName, string imagePath, string previewDirectory)
+    private static RectangleF PrintableBounds(RectangleF paper, RectangleF printable, RectangleF visible)
+    {
+        foreach (RectangleF bounds in new RectangleF[] { paper, printable, visible })
+            if (!Finite(bounds.X) || !Finite(bounds.Y) || !Finite(bounds.Width) || !Finite(bounds.Height) ||
+                bounds.Width <= 0 || bounds.Height <= 0)
+                throw new ReceiptPrintFailure("invalid_paper_settings");
+        RectangleF bounded = RectangleF.Intersect(paper, printable);
+        // OriginAtMargins=false uses the printable-area origin, not the physical paper origin.
+        bounded.Offset(-printable.X, -printable.Y);
+        bounded = RectangleF.Intersect(bounded, visible);
+        if (bounded.Width < 78 || bounded.Height < 78 || bounded.Width > 2000 || bounded.Height > 2362)
+            throw new ReceiptPrintFailure("invalid_paper_settings");
+        return bounded;
+    }
+
+    private static RectangleF PrintableBounds(PageSettings settings)
+    {
+        RectangleF printable = settings.PrintableArea;
+        return PrintableBounds(new RectangleF(0, 0, settings.PaperSize.Width, settings.PaperSize.Height),
+            printable, new RectangleF(0, 0, printable.Width, printable.Height));
+    }
+
+    private static RectangleF LayoutBounds(RectangleF available, float contentWidth, float horizontalOffset)
+    {
+        float width = Math.Min(contentWidth, available.Width);
+        float left = available.X + (available.Width - width) / 2 + horizontalOffset;
+        left = Math.Max(available.X, Math.Min(available.Right - width, left));
+        return new RectangleF(left, available.Y, width, available.Height);
+    }
+    public static ReceiptPrintResult Execute(string printerName, int paperWidth, string jobName, string imagePath, string previewDirectory, float printableWidthMm, float horizontalOffsetMm)
     {
         bool preview = !String.IsNullOrEmpty(previewDirectory);
         bool attempted = false;
@@ -229,12 +269,14 @@ public static class WindowsReceiptGraphics
                 document.DefaultPageSettings.Landscape = false;
                 document.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
                 float requestedWidth = paperWidth * 100.0f / 25.4f;
+                float contentWidth = printableWidthMm * 100.0f / 25.4f;
+                float horizontalOffset = horizontalOffsetMm * 100.0f / 25.4f;
                 int width = (int)Math.Round(requestedWidth);
                 int desiredHeight = (int)Math.Ceiling(image.Height * (double)width / image.Width + 20);
                 desiredHeight = Math.Max(200, Math.Min(1169, desiredHeight));
                 document.DefaultPageSettings.PaperSize = SelectPaper(document, width, desiredHeight);
-                SizeF printable = PrintableSize(document.DefaultPageSettings);
-                float targetWidth = Math.Min(requestedWidth, printable.Width);
+                RectangleF printable = PrintableBounds(document.DefaultPageSettings);
+                float targetWidth = Math.Min(contentWidth, printable.Width);
                 int rowsPerPage = (int)Math.Floor(printable.Height * image.Width / targetWidth);
                 int minimumRowsPerPage = rowsPerPage - BreakSearchDepth(image.Width, rowsPerPage);
                 double maximumPlannedPages = minimumRowsPerPage > 0 ? Math.Ceiling(image.Height / (double)minimumRowsPerPage) : Double.PositiveInfinity;
@@ -252,18 +294,24 @@ public static class WindowsReceiptGraphics
                 else document.PrintController = new StandardPrintController();
                 int rowOffset = 0;
                 int pages = 0;
+                float actualWidth = targetWidth;
+                float actualOffset = 0;
                 document.PrintPage += delegate(object sender, PrintPageEventArgs args)
                 {
                     if (pages >= MaximumPages) throw new ReceiptPrintFailure("receipt_too_long", attempted);
-                    SizeF available = PrintableSize(args.PageSettings);
-                    float drawWidth = Math.Min(requestedWidth, available.Width);
+                    args.Graphics.PageUnit = GraphicsUnit.Display;
+                    RectangleF available = PrintableBounds(args.PageBounds, args.PageSettings.PrintableArea,
+                        args.Graphics.VisibleClipBounds);
+                    RectangleF layout = LayoutBounds(available, contentWidth, horizontalOffset);
+                    float drawWidth = layout.Width;
+                    actualWidth = drawWidth;
+                    actualOffset = layout.X - (available.X + (available.Width - drawWidth) / 2);
                     int pageRows = RowsForPage(image.Width, inkRows, rowOffset, (int)Math.Floor(available.Height * image.Width / drawWidth));
                     if (pageRows < 1) throw new ReceiptPrintFailure("invalid_paper_settings", attempted);
                     float drawHeight = pageRows * drawWidth / image.Width;
-                    args.Graphics.PageUnit = GraphicsUnit.Display;
                     args.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
                     args.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
-                    args.Graphics.DrawImage(image, new RectangleF(0, 0, drawWidth, drawHeight),
+                    args.Graphics.DrawImage(image, new RectangleF(layout.X, layout.Y, drawWidth, drawHeight),
                         new RectangleF(0, rowOffset, image.Width, pageRows), GraphicsUnit.Pixel);
                     rowOffset += pageRows;
                     pages++;
@@ -294,7 +342,8 @@ public static class WindowsReceiptGraphics
                     }
                 }
                 return new ReceiptPrintResult { Success = true, Submitted = !preview, Preview = preview, Pages = pages,
-                    PrintableWidthMm = Math.Round(targetWidth * 25.4 / 100, 2) };
+                    PrintableWidthMm = Math.Round(actualWidth * 25.4 / 100, 2),
+                    HorizontalOffsetMm = Math.Round(actualOffset * 25.4 / 100, 2) };
             }
         }
         catch (ReceiptPrintFailure error)
@@ -311,8 +360,8 @@ public static class WindowsReceiptGraphics
     }
 }
 "@
-    $result = [WindowsReceiptGraphics]::Execute($manifest.printerName, [int] $manifest.paperWidth, $manifest.jobName, $manifest.imagePath, $PreviewDirectory)
-    [ordered]@{ success = $true; submitted = $result.Submitted; preview = $result.Preview; pages = $result.Pages; printableWidthMm = $result.PrintableWidthMm } | ConvertTo-Json -Compress
+    $result = [WindowsReceiptGraphics]::Execute($manifest.printerName, [int] $manifest.paperWidth, $manifest.jobName, $manifest.imagePath, $PreviewDirectory, [single] $printableWidthMm, [single] $horizontalOffsetMm)
+    [ordered]@{ success = $true; submitted = $result.Submitted; preview = $result.Preview; pages = $result.Pages; printableWidthMm = $result.PrintableWidthMm; horizontalOffsetMm = $result.HorizontalOffsetMm } | ConvertTo-Json -Compress
     exit 0
 }
 catch {

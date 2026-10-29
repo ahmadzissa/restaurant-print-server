@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
-const { resolvePrintMode, validatePaperWidth, renderReceiptImage, printWindowsReceipt, MAX_HEIGHT } = require('../receipt-printing');
+const { resolvePrintMode, resolvePrintLayout, validatePaperWidth, renderReceiptImage, printWindowsReceipt, MAX_HEIGHT } = require('../receipt-printing');
 
 const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(32)]);
 
@@ -82,6 +82,35 @@ test('receipt widths are restricted to supported 58 and 80 mm forms', () => {
     }
 });
 
+test('receipt layouts default to thermal printable widths with no horizontal offset', () => {
+    for (const [paperWidth, printableWidthMm] of [[58, 48], [80, 72]]) {
+        assert.deepEqual(resolvePrintLayout(paperWidth), { printableWidthMm, horizontalOffsetMm: 0 });
+        assert.deepEqual(resolvePrintLayout(paperWidth, null), { printableWidthMm, horizontalOffsetMm: 0 });
+        for (const requested of [0, null, undefined]) {
+            assert.deepEqual(resolvePrintLayout(paperWidth, { printableWidthMm: requested }), { printableWidthMm, horizontalOffsetMm: 0 });
+        }
+    }
+});
+
+test('receipt layout calibration accepts bounded widths and offsets', () => {
+    for (const paperWidth of [58, 80]) {
+        for (const printableWidthMm of [20, 47.5, paperWidth]) {
+            for (const horizontalOffsetMm of [-10, -2.5, 0, 2.5, 10]) {
+                assert.deepEqual(resolvePrintLayout(paperWidth, { printableWidthMm, horizontalOffsetMm }), { printableWidthMm, horizontalOffsetMm });
+            }
+        }
+        for (const printableWidthMm of [-1, 19.9, paperWidth + 0.1, Infinity, NaN, '48', 'invalid']) {
+            assert.throws(() => resolvePrintLayout(paperWidth, { printableWidthMm }));
+        }
+        for (const horizontalOffsetMm of [-10.1, 10.1, Infinity, NaN, '1', 'invalid']) {
+            assert.throws(() => resolvePrintLayout(paperWidth, { horizontalOffsetMm }));
+        }
+        for (const layout of [false, [], 'invalid', 5]) {
+            assert.throws(() => resolvePrintLayout(paperWidth, layout));
+        }
+    }
+});
+
 test('rendering captures the complete bounded receipt at thermal resolution and releases the debugger', async () => {
     const app = renderer({ height: 2400 });
     assert.deepEqual(await renderReceiptImage(app.window, 80), png);
@@ -149,6 +178,8 @@ test('Windows submission preserves exact printer names as JSON data and cleans p
             const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8'));
             assert.equal(manifest.printerName, printerName);
             assert.equal(manifest.paperWidth, 80);
+            assert.equal(manifest.printableWidthMm, 72);
+            assert.equal(manifest.horizontalOffsetMm, 0);
             assert.equal(manifest.jobName, 'YalaMenu receipt');
             assert.ok(path.resolve(manifestPath).startsWith(path.resolve(directory) + path.sep));
             assert.deepEqual(await fs.readFile(manifest.imagePath), png);
@@ -157,6 +188,34 @@ test('Windows submission preserves exact printer names as JSON data and cleans p
     });
     assert.equal(executions, 1);
     assert.deepEqual(result, { success: true, mode: 'windows-graphics', physical_output_verified: false });
+    assert.deepEqual(await fs.readdir(directory), []);
+});
+
+test('calibrated width and offset reach the helper manifest without changing the rendered paper width', async t => {
+    const directory = await fixture(t);
+    await printWindowsReceipt({}, options({ paperWidth: 58, printableWidthMm: 44.5, horizontalOffsetMm: -2.5 }), {
+        tempRoot: directory,
+        render: async (_, width) => { assert.equal(width, 58); return png; },
+        execute: async (_, args) => {
+            const manifest = JSON.parse(await fs.readFile(args[args.indexOf('-ManifestPath') + 1], 'utf8'));
+            assert.equal(manifest.paperWidth, 58);
+            assert.equal(manifest.printableWidthMm, 44.5);
+            assert.equal(manifest.horizontalOffsetMm, -2.5);
+            return { stdout: '{"success":true,"submitted":true}' };
+        },
+    });
+    assert.deepEqual(await fs.readdir(directory), []);
+});
+
+test('invalid layout calibration cannot render or submit a receipt', async t => {
+    const directory = await fixture(t);
+    for (const layout of [{ printableWidthMm: 81 }, { printableWidthMm: 19 }, { horizontalOffsetMm: 11 }, { horizontalOffsetMm: NaN }]) {
+        await assert.rejects(printWindowsReceipt({}, options(layout), {
+            tempRoot: directory,
+            render: () => assert.fail('invalid layout must not render'),
+            execute: () => assert.fail('invalid layout must not submit'),
+        }));
+    }
     assert.deepEqual(await fs.readdir(directory), []);
 });
 

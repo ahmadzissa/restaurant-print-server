@@ -29,7 +29,7 @@ function appFixture(t, initial = {}, failures = {}) {
     const app = new EventEmitter();
     Object.assign(app, {
         getPath: () => directory,
-        getVersion: () => '1.3.1',
+        getVersion: () => '1.3.2',
         requestSingleInstanceLock: () => true,
         setAppUserModelId() {},
         quit() { app.isQuitting = true; app.emit('before-quit'); },
@@ -267,7 +267,7 @@ test('status advertises durable remote job support only in the updated agent', t
     fixture.routes.get('GET /status')({}, { json(value) { status = value; } });
     assert.equal(status.running, true);
     assert.equal(status.remote_jobs, true);
-    assert.equal(status.version, '1.3.1');
+    assert.equal(status.version, '1.3.2');
     assert.equal(status.windows_graphics, true);
 });
 
@@ -276,8 +276,11 @@ async function submitReceipt(fixture, printerName, width = 80) {
     fixture.context.monitorPrintJobStatus = async () => { fixture.monitorCalls++; return { elapsed: 1, checks: 1 }; };
     const pending = fixture.context.printJob(printerName, '<p>Synthetic receipt</p>', null, width);
     await Promise.resolve();
-    const timer = [...fixture.timers.values()].find(item => item.delay === 500);
-    if (timer) timer.callback();
+    const timerEntry = [...fixture.timers.entries()].find(([, item]) => item.delay === 500);
+    if (timerEntry) {
+        fixture.timers.delete(timerEntry[0]);
+        timerEntry[1].callback();
+    }
     return pending;
 }
 
@@ -345,4 +348,64 @@ test('legacy queue monitoring passes names as an argument without a command shel
     assert.equal(fixture.commands[0].file, 'wmic');
     assert.equal(fixture.commands[0].args[2], `name like '%${name}%'`);
     assert.equal(fixture.commands[0].options.windowsHide, true);
+});
+
+test('graphics layout stays per printer and applies to an Epson override', async t => {
+    const fixture = appFixture(t, {
+        printerPrintModes: { 'EPSON TM-T20III': 'windows-graphics' },
+        printerLayouts: {
+            'EPSON TM-T20III': { printableWidthMm: 68, horizontalOffsetMm: -2 },
+            'Xprinter XP-80': { printableWidthMm: 70, horizontalOffsetMm: 1 },
+        },
+    });
+    await submitReceipt(fixture, 'EPSON TM-T20III');
+    await submitReceipt(fixture, 'Xprinter XP-80');
+    assert.deepEqual(fixture.submissions.map(call => [call.options.printableWidthMm, call.options.horizontalOffsetMm]), [[68, -2], [70, 1]]);
+});
+
+test('invalid graphics layouts fail before submission and do not affect standard Epson printing', async t => {
+    const fixture = appFixture(t, { printerLayouts: {
+        'Xprinter XP-80': { printableWidthMm: 90 }, 'EPSON TM-T20III': { printableWidthMm: 90 },
+    } });
+    await assert.rejects(submitReceipt(fixture, 'Xprinter XP-80'), /Printable width/);
+    assert.equal(fixture.submissions.length, 0);
+    assert.equal(fixture.windows.length, 0);
+    await submitReceipt(fixture, 'EPSON TM-T20III');
+    assert.equal(fixture.submissions[0].mode, 'electron');
+});
+
+test('test receipt reports the saved Epson method, width and layout with both edge markers', async t => {
+    const name = 'EPSON <counter>';
+    const fixture = appFixture(t, {
+        printerPrintModes: { [name]: 'windows-graphics' }, printerPaperWidths: { [name]: 58 },
+        printerLayouts: { [name]: { printableWidthMm: 46, horizontalOffsetMm: -1 } },
+    });
+    fixture.context.registerIPCHandlers();
+    let request;
+    fixture.context.stubPrint = async (...args) => { request = args; return { success: true, message: 'Submitted' }; };
+    vm.runInContext('printJob = stubPrint', fixture.context);
+    const result = await fixture.handlers.get('test-print')({}, name, 80);
+    assert.equal(result.success, true);
+    assert.equal(request[0], name);
+    assert.equal(request[3], 58);
+    assert.match(request[1], /Windows graphics/);
+    assert.match(request[1], /Printable width:<\/strong> 46mm/);
+    assert.match(request[1], /Horizontal adjustment:<\/strong> -1mm/);
+    assert.match(request[1], /EPSON &lt;counter&gt;/);
+    assert.match(request[1], /<span>LEFT<\/span><span>RIGHT<\/span>/);
+    assert.match(request[1], /اختبار عربي/);
+    assert.match(request[1], /width: 56mm/);
+});
+
+test('a failed configuration save does not change the active printer method or layout', async t => {
+    const fixture = appFixture(t, { printerPrintModes: { Epson: 'electron' } });
+    fixture.context.registerIPCHandlers();
+    fixture.context.saveConfig = () => false;
+    const result = await fixture.handlers.get('save-config')({}, {
+        printerPrintModes: { Epson: 'windows-graphics' }, printerLayouts: { Epson: { printableWidthMm: 68 } },
+    });
+    assert.equal(result.success, false);
+    const config = fixture.handlers.get('get-config')();
+    assert.equal(config.printerPrintModes.Epson, 'electron');
+    assert.equal(config.printerLayouts, undefined);
 });
